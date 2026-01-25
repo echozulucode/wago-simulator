@@ -47,21 +47,11 @@ impl Service for SimulatorService {
                 Ok(Response::ReadDiscreteInputs(subset))
             }
             Request::ReadHoldingRegisters(addr, cnt) => {
-                // If checking watchdog config
-                if addr == 0x1000 {
-                    let val = sim.watchdog_timeout as u16;
-                    let mut res = vec![val];
-                    if cnt > 1 {
-                        res.resize(cnt as usize, 0);
-                    }
-                    Ok(Response::ReadHoldingRegisters(res))
-                } else {
-                    let subset = vec![0u16; cnt as usize];
-                    Ok(Response::ReadHoldingRegisters(subset))
-                }
+                // Use the new general read method
+                let values = sim.read_holding_registers(addr, cnt);
+                Ok(Response::ReadHoldingRegisters(values))
             }
             Request::ReadInputRegisters(addr, cnt) => {
-                // Check metadata area first
                 if let Some(special) = sim.read_special_input_registers(addr, cnt) {
                     Ok(Response::ReadInputRegisters(special))
                 } else {

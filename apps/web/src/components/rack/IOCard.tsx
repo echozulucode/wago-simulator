@@ -95,7 +95,7 @@ export function IOCard({
   const moduleType = definition.type;
 
   // Calculate card height based on channel count
-  const cardHeight = Math.max(160, definition.channels * 14 + 48);
+  const cardHeight = Math.max(220, definition.channels * 20 + 60);
 
   return (
     <div

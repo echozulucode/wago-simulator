@@ -28,3 +28,5 @@ tokio-modbus = { version = "0.17.0", features = ["tcp-server"] }
 thiserror = "2.0.18"
 anyhow = "1.0.100"
 chrono = { version = "0.4.43", features = ["serde"] }
+serde_yaml = "0.9.34"
+tauri-plugin-dialog = "2.6.0"

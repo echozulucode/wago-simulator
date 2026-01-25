@@ -52,7 +52,7 @@ export function WorkArea() {
       e.preventDefault();
       setIsDragOver(false);
 
-      const moduleNumber = e.dataTransfer.getData('moduleNumber');
+      const moduleNumber = e.dataTransfer.getData('text/plain');
       if (moduleNumber && config) {
         const modules = getModulesSorted();
         const nextSlot = modules.length > 0 ? Math.max(...modules.map(m => m.slotPosition)) + 1 : 0;

@@ -20,6 +20,7 @@ interface RackStore {
   // Actions
   init: () => void;
   createRack: (name: string, description?: string) => Promise<void>;
+  loadConfig: (path: string) => Promise<void>;
   addModule: (moduleNumber: string, slotPosition: number) => Promise<void>;
   removeModule: (moduleId: string) => Promise<void>;
   
@@ -68,6 +69,10 @@ export const useRackStore = create<RackStore>((set, get) => ({
 
   createRack: async (name, description) => {
     await tauriApi.createRack(name, description);
+  },
+
+  loadConfig: async (path) => {
+    await tauriApi.loadConfig(path);
   },
 
   addModule: async (moduleNumber, slotPosition) => {

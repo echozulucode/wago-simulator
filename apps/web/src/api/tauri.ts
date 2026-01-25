@@ -19,6 +19,14 @@ export const tauriApi = {
     return await invoke('create_rack', { name, description });
   },
 
+  listConfigs: async (): Promise<string[]> => {
+    return await invoke('list_configs');
+  },
+
+  loadConfig: async (configPath: string): Promise<RackConfig> => {
+    return await invoke('load_config', { configPath });
+  },
+
   addModule: async (moduleNumber: string, slotPosition: number): Promise<ModuleInstance> => {
     return await invoke('add_module', { moduleNumber, slotPosition });
   },

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { cn } from '@/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 import { useRackStore } from '@/stores/rackStore';
+import { tauriApi } from '@/api/tauri';
 
 interface MenuItem {
   id: string;
@@ -25,6 +26,7 @@ interface MenuProps {
 
 function Menu({ label, items, isOpen, onOpen, onClose }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -43,7 +45,14 @@ function Menu({ label, items, isOpen, onOpen, onClose }: MenuProps) {
   }, [isOpen, onClose]);
 
   const handleItemClick = (item: MenuItem) => {
-    if (item.action && !item.disabled) {
+    if (item.disabled) return;
+    
+    if (item.submenu) {
+        // Toggle submenu logic would go here, but for simple hover/click menus:
+        // We'll rely on CSS or simple state if we wanted nested menus.
+        // For MVP, "Open Recent" showing as a flat list in submenu style is tricky without nested UI code.
+        // Let's implement a simple nested render.
+    } else if (item.action) {
       item.action();
       onClose();
     }
@@ -68,24 +77,49 @@ function Menu({ label, items, isOpen, onOpen, onClose }: MenuProps) {
             item.divider ? (
               <div key={index} className="menu-divider" />
             ) : (
-              <button
-                key={item.id}
-                className={cn(
-                  'menu-item w-full text-left',
-                  item.disabled && 'menu-item-disabled'
-                )}
-                onClick={() => handleItemClick(item)}
-                disabled={item.disabled}
-              >
-                <span className="w-4 flex items-center justify-center">
-                  {item.checked && '✓'}
-                  {item.icon}
-                </span>
-                <span className="flex-1">{item.label}</span>
-                {item.shortcut && (
-                  <span className="text-xs text-panel-text-muted ml-4">{item.shortcut}</span>
-                )}
-              </button>
+              <div key={item.id} className="relative group">
+                  <button
+                    className={cn(
+                      'menu-item w-full text-left flex items-center',
+                      item.disabled && 'menu-item-disabled'
+                    )}
+                    onClick={() => handleItemClick(item)}
+                    disabled={item.disabled}
+                    onMouseEnter={() => setActiveSubmenu(item.id)}
+                  >
+                    <span className="w-4 flex items-center justify-center">
+                      {item.checked && '✓'}
+                      {item.icon}
+                    </span>
+                    <span className="flex-1">{item.label}</span>
+                    {item.shortcut && (
+                      <span className="text-xs text-panel-text-muted ml-4">{item.shortcut}</span>
+                    )}
+                    {item.submenu && <span className="ml-2">▶</span>}
+                  </button>
+                  
+                  {/* Nested Submenu */}
+                  {item.submenu && activeSubmenu === item.id && (
+                      <div className="absolute left-full top-0 min-w-[200px] bg-menu-bg border border-menu-border shadow-panel-lg py-1 -ml-1">
+                          {item.submenu.map((sub, subIdx) => (
+                              <button
+                                key={sub.id}
+                                className={cn(
+                                  'menu-item w-full text-left flex items-center',
+                                  sub.disabled && 'menu-item-disabled'
+                                )}
+                                onClick={() => {
+                                    if (sub.action) sub.action();
+                                    onClose();
+                                }}
+                              >
+                                  <span className="w-4"></span>
+                                  <span className="flex-1">{sub.label}</span>
+                              </button>
+                          ))}
+                      </div>
+                  )}
+              </div>
             )
           )}
         </div>
@@ -96,6 +130,7 @@ function Menu({ label, items, isOpen, onOpen, onClose }: MenuProps) {
 
 export function MenuBar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [configFiles, setConfigFiles] = useState<string[]>([]);
 
   const { leftPanelOpen, rightPanelOpen, statusBarVisible, showChannelNumbers, showRawValues } =
     useUIStore();
@@ -112,6 +147,7 @@ export function MenuBar() {
 
   const {
     createRack,
+    loadConfig,
     clearRack,
     simulationState,
     startSimulation,
@@ -119,13 +155,27 @@ export function MenuBar() {
     resetAllIO,
   } = useRackStore();
 
+  useEffect(() => {
+      // Load config files
+      tauriApi.listConfigs().then(setConfigFiles).catch(console.error);
+  }, [openMenu]); // Refresh when menu opens? Or just once.
+
   const menus: { label: string; items: MenuItem[] }[] = [
     {
       label: 'File',
       items: [
         { id: 'new', label: 'New Rack', shortcut: 'Ctrl+N', action: () => createRack('New Rack') },
         { id: 'open', label: 'Open...', shortcut: 'Ctrl+O', action: () => {}, disabled: true },
-        { id: 'recent', label: 'Open Recent', disabled: true },
+        { 
+            id: 'recent', 
+            label: 'Open Config (YAML)', 
+            disabled: configFiles.length === 0,
+            submenu: configFiles.map(file => ({
+                id: `file-${file}`,
+                label: file,
+                action: () => loadConfig(file)
+            }))
+        },
         { id: 'div1', label: '', divider: true },
         { id: 'save', label: 'Save', shortcut: 'Ctrl+S', action: () => {}, disabled: true },
         { id: 'saveas', label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: () => {}, disabled: true },

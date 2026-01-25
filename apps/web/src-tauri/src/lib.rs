@@ -2,6 +2,7 @@ pub mod models;
 pub mod modules;
 pub mod server;
 pub mod state;
+pub mod sim_config;
 
 use models::{ModuleInstance, RackConfig, SimulationState, ModuleState};
 use state::{AppState, Simulator};
@@ -39,6 +40,36 @@ fn create_rack(state: State<AppState>, name: String, description: Option<String>
     
     sim.load_rack(config.clone());
     Ok(config)
+}
+
+#[tauri::command]
+fn list_configs() -> Result<Vec<String>, String> {
+    let mut files = Vec::new();
+    let paths_to_check = vec![".", "../../../"]; // Check current dir and project root (from src-tauri)
+
+    for dir in paths_to_check {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    if ext == "yaml" || ext == "yml" {
+                        files.push(path.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+    }
+    Ok(files)
+}
+
+#[tauri::command]
+fn load_config(state: State<AppState>, config_path: String) -> Result<RackConfig, String> {
+    let content = std::fs::read_to_string(&config_path).map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    sim.load_from_yaml_string(&content).map_err(|e| format!("Failed to parse YAML: {}", e))?;
+    
+    Ok(sim.config.clone().ok_or("Failed to load config".to_string())?)
 }
 
 #[tauri::command]
@@ -128,7 +159,6 @@ pub fn run() {
         )?;
       }
 
-      // Start simulation loop (Watchdog)
       let app_state = app.state::<AppState>();
       let sim = app_state.0.clone();
       tauri::async_runtime::spawn(async move {
@@ -145,6 +175,8 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
         get_rack_state,
         create_rack,
+        list_configs,
+        load_config,
         add_module,
         remove_module,
         set_channel_value,

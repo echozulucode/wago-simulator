@@ -1,0 +1,51 @@
+version: 2
+
+sim:
+  name: 'Remote I/O Simulator'
+  seed: 12345
+  tick_ms: 10
+  timezone: 'America/Chicago'
+
+transport:
+  kind: 'modbus_tcp'
+  listen:
+    host: '0.0.0.0'
+    port: 502
+  unit_id: 1
+
+process_image:
+  layout: 'wago_750_default'
+  word_endian: 'big'
+  byte_order_in_word: 'big'
+  align_modules_to: 2
+
+modbus_map:
+  inputs:
+    kind: 'input_registers'
+    base: 0
+  outputs:
+    kind: 'holding_registers'
+    base: 0
+
+racks:
+  - id: 'rack0'
+    model: 'wago-modbustcp'
+    name: 'Remote Rack 0'
+
+    modules:
+      - id: 'r0m0'
+        model: '750-1415'
+        name: 'DI_MAIN'
+        channels: []
+      - id: 'r0m1'
+        model: '750-1515'
+        name: 'DO_MAIN'
+        channels: []
+      - id: 'r0m2'
+        model: '750-455'
+        name: 'AI_SPARES'
+        channels: []
+      - id: 'r0m3'
+        model: '750-464'
+        name: 'RTD_WATER'
+        channels: []

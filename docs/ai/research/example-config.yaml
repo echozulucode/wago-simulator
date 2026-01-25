@@ -1,0 +1,184 @@
+version: 2
+
+sim:
+  name: 'Remote I/O Simulator'
+  seed: 12345
+  tick_ms: 10 # simulation update step
+  timezone: 'America/Chicago'
+
+transport:
+  kind: 'modbus_tcp'
+  listen:
+    host: '0.0.0.0'
+    port: 502
+  unit_id: 1
+
+# Coupler/controller exposure policy (what your simulator emulates)
+process_image:
+  layout: 'wago_750_default' # named policy; supports future variants
+  word_endian: 'big' # Modbus register endianness
+  byte_order_in_word: 'big' # 2 bytes inside a 16-bit register
+  include_status_bytes: false # if you decide to emulate per-module status/control bytes
+  include_control_bytes: false
+  align_modules_to: 2 # byte alignment (2 => word aligned)
+  pad_between_modules: true
+
+modbus_map:
+  # One clear strategy: put *all inputs* into Input Registers and *all outputs* into Holding Registers.
+  # You can support alternatives later.
+  inputs:
+    kind: 'input_registers'
+    base: 0
+  outputs:
+    kind: 'holding_registers'
+    base: 0
+
+racks:
+  - id: 'rack0'
+    model: 'wago-modbustcp'
+    name: 'Remote Rack 0'
+
+    modules:
+      - id: 'r0m0'
+        model: '750-1415' # 8-ch DI
+        name: 'DI_MAIN'
+        channels:
+          - ch: 0
+            signal:
+              name: 'MAIN_CONT_STATUS'
+              type: 'bool'
+              enum: { false: 'not Closed', true: 'Closed' }
+          - ch: 1
+            signal:
+              name: 'PRECHARGE_STATUS'
+              type: 'bool'
+              enum: { false: 'not Closed', true: 'Closed' }
+          - ch: 2
+            signal:
+              name: 'DC_DISCHARGE_STATUS'
+              type: 'bool'
+              enum: { false: 'not Closed', true: 'Closed' }
+          - ch: 3
+            signal: { name: 'SPARE_DIN_4', type: 'bool' }
+          - ch: 4
+            signal:
+              name: 'L2_TEMP_SWITCH'
+              type: 'bool'
+              enum: { false: 'Alarm', true: 'Good' }
+          - ch: 5
+            signal:
+              name: 'L1_TEMP_SWITCH'
+              type: 'bool'
+              enum: { false: 'Alarm', true: 'Good' }
+          - ch: 6
+            signal:
+              name: 'PS1_STATUS'
+              type: 'bool'
+              enum: { false: 'Alarm', true: 'Good' }
+          - ch: 7
+            signal:
+              name: 'PS2_STATUS'
+              type: 'bool'
+              enum: { false: 'Alarm', true: 'Good' }
+
+      - id: 'r0m1'
+        model: '750-1515' # 8-ch DO
+        name: 'DO_MAIN'
+        channels:
+          - ch: 0
+            signal:
+              name: 'PRE_CHRG_CMD'
+              type: 'bool'
+              enum: { false: 'Release', true: 'Close' }
+          - ch: 1
+            signal:
+              name: 'MAIN_CONT_CMD'
+              type: 'bool'
+              enum: { false: 'Release', true: 'Close' }
+          - ch: 2
+            signal:
+              name: 'DC_DISCHARGE_CMD'
+              type: 'bool'
+              enum: { false: 'Release', true: 'Close' }
+          - ch: 3
+            signal: { name: 'SPARE_DOUT_4', type: 'bool' }
+          - ch: 4
+            signal: { name: 'SPARE_DOUT_5', type: 'bool' }
+          - ch: 5
+            signal: { name: 'SPARE_DOUT_6', type: 'bool' }
+          - ch: 6
+            signal: { name: 'SPARE_DOUT_7', type: 'bool' }
+          - ch: 7
+            signal: { name: 'SPARE_DOUT_8', type: 'bool' }
+
+      - id: 'r0m2'
+        model: '750-455' # 4-ch AI 4..20mA
+        name: 'AI_SPARES'
+        channels:
+          - ch: 0
+            signal:
+              name: 'SPARE_AIN_1'
+              type: 'analog'
+              eng:
+                units: 'mA'
+                min: 4.0
+                max: 20.0
+                dp: 2
+          - ch: 1
+            signal:
+              name: 'SPARE_AIN_2'
+              type: 'analog'
+              eng: { units: 'mA', min: 4.0, max: 20.0, dp: 2 }
+          - ch: 2
+            signal:
+              name: 'SPARE_AIN_3'
+              type: 'analog'
+              eng: { units: 'mA', min: 4.0, max: 20.0, dp: 2 }
+          - ch: 3
+            signal:
+              name: 'SPARE_AIN_4'
+              type: 'analog'
+              eng: { units: 'mA', min: 4.0, max: 20.0, dp: 2 }
+
+      - id: 'r0m3'
+        model: '750-464' # RTD / Resistance configurable
+        name: 'RTD_WATER'
+        module_config:
+          mode: 'rtd' # "rtd" | "resistance" | "potentiometer" (example)
+          rtd_type: 'pt100'
+          wiring: '3wire'
+        channels:
+          - ch: 0
+            signal:
+              name: 'H2O_INLET_RTD'
+              type: 'temperature'
+              eng:
+                units: 'C'
+                dp: 2
+                scale: 0.1 # optional UI scale; real mapping defined in module spec
+          - ch: 1
+            signal:
+              name: 'H2O_OUTLET_RTD'
+              type: 'temperature'
+              eng: { units: 'C', dp: 2, scale: 0.1 }
+
+# Optional: scenarios for deterministic automation + fault injection
+scenarios:
+  - id: 'default'
+    name: 'Default bring-up'
+    steps:
+      - at_ms: 0
+        set:
+          - signal: 'rack0.DI_MAIN.MAIN_CONT_STATUS'
+            value: false
+      - at_ms: 2000
+        ramp:
+          signal: 'rack0.AI_SPARES.SPARE_AIN_1'
+          from: 4.0
+          to: 20.0
+          duration_ms: 10000
+      - at_ms: 5000
+        fault:
+          signal: 'rack0.RTD_WATER.H2O_INLET_RTD'
+          kind: 'wire_break' # "wire_break" | "overrange" | "underrange" | "short"
+          enable: true

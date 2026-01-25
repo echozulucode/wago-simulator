@@ -159,7 +159,7 @@ function DraggableModule({ moduleNumber, name, type: _type, color, onAdd }: Drag
       className="flex items-center gap-2 px-2 py-1.5 hover:bg-panel-hover rounded-sm cursor-grab active:cursor-grabbing group"
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData('moduleNumber', moduleNumber);
+        e.dataTransfer.setData('text/plain', moduleNumber);
         e.dataTransfer.effectAllowed = 'copy';
       }}
       data-module={moduleNumber}

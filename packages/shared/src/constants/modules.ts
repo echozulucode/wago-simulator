@@ -7,7 +7,9 @@ import type { ModuleDefinition } from '../types/modules.js';
  * - Digital Input: Blue (#2563eb)
  * - Digital Output: Red (#dc2626)
  * - Analog Input: Purple (#9333ea)
+ * - Analog Output: Orange (#f59e0b)
  * - RTD Input: Green (#16a34a)
+ * - Special: Teal (#14b8a6)
  */
 export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
   // Fieldbus Coupler
@@ -35,11 +37,10 @@ export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
     color: '#2563eb',
     description: '16-Channel Digital Input, 24V DC, 3ms filter',
     bitsPerChannel: 1,
-    processImageInputSize: 2, // 16 bits = 2 bytes
+    processImageInputSize: 2,
     processImageOutputSize: 0,
     hasStatus: false,
   },
-
   '750-1415': {
     moduleNumber: '750-1415',
     name: '8-DI 24VDC',
@@ -49,23 +50,35 @@ export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
     color: '#2563eb',
     description: '8-Channel Digital Input, 24V DC, 3ms filter',
     bitsPerChannel: 1,
-    processImageInputSize: 1, // 8 bits = 1 byte
+    processImageInputSize: 1,
     processImageOutputSize: 0,
     hasStatus: false,
   },
-
-  '750-1425': {
-    moduleNumber: '750-1425',
-    name: '8-DI 24VDC Diag',
+  '750-430': {
+    moduleNumber: '750-430',
+    name: '8-DI 24VDC 0.2ms',
     type: 'digital-input',
     channels: 8,
     width: 1,
     color: '#2563eb',
-    description: '8-Channel Digital Input, 24V DC with diagnostics',
+    description: '8-Channel Digital Input, 24V DC, 0.2ms filter',
     bitsPerChannel: 1,
-    processImageInputSize: 2, // 8 bits data + 8 bits status
+    processImageInputSize: 1,
     processImageOutputSize: 0,
-    hasStatus: true,
+    hasStatus: false,
+  },
+  '753-440': {
+    moduleNumber: '753-440',
+    name: '4-DI 230VAC',
+    type: 'digital-input',
+    channels: 4,
+    width: 1,
+    color: '#2563eb',
+    description: '4-Channel Digital Input, 230V AC',
+    bitsPerChannel: 1,
+    processImageInputSize: 1, // 4 bits + padding
+    processImageOutputSize: 0,
+    hasStatus: false,
   },
 
   // Digital Output Modules
@@ -78,13 +91,12 @@ export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
     color: '#dc2626',
     description: '16-Channel Digital Output, 24V DC, 0.5A',
     bitsPerChannel: 1,
-    processImageInputSize: 2, // Readback
-    processImageOutputSize: 2, // 16 bits = 2 bytes
+    processImageInputSize: 2,
+    processImageOutputSize: 2,
     hasStatus: false,
   },
-
-  '750-1516': {
-    moduleNumber: '750-1516',
+  '750-1515': {
+    moduleNumber: '750-1515',
     name: '8-DO 24VDC',
     type: 'digital-output',
     channels: 8,
@@ -92,8 +104,34 @@ export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
     color: '#dc2626',
     description: '8-Channel Digital Output, 24V DC, 0.5A',
     bitsPerChannel: 1,
-    processImageInputSize: 1, // Readback
-    processImageOutputSize: 1, // 8 bits = 1 byte
+    processImageInputSize: 1,
+    processImageOutputSize: 1,
+    hasStatus: false,
+  },
+  '750-530': {
+    moduleNumber: '750-530',
+    name: '8-DO 24VDC 2A',
+    type: 'digital-output',
+    channels: 8,
+    width: 1,
+    color: '#dc2626',
+    description: '8-Channel Digital Output, 24V DC, 2.0A',
+    bitsPerChannel: 1,
+    processImageInputSize: 1,
+    processImageOutputSize: 1,
+    hasStatus: false,
+  },
+  '750-515': {
+    moduleNumber: '750-515',
+    name: '4-DO Relay',
+    type: 'digital-output',
+    channels: 4,
+    width: 1,
+    color: '#dc2626',
+    description: '4-Channel Relay Output, AC 250V, 2A',
+    bitsPerChannel: 1,
+    processImageInputSize: 1,
+    processImageOutputSize: 1,
     hasStatus: false,
   },
 
@@ -105,24 +143,51 @@ export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
     channels: 4,
     width: 1,
     color: '#9333ea',
-    description: '4-Channel Analog Input, 4-20mA, 16-bit resolution',
+    description: '4-Channel Analog Input, 4-20mA, 16-bit',
     bitsPerChannel: 16,
-    processImageInputSize: 8, // 4 x 16-bit values
+    processImageInputSize: 8,
+    processImageOutputSize: 0,
+    hasStatus: false,
+  },
+  '750-454': {
+    moduleNumber: '750-454',
+    name: '2-AI 4-20mA',
+    type: 'analog-input',
+    channels: 2,
+    width: 1,
+    color: '#9333ea',
+    description: '2-Channel Analog Input, 4-20mA, Differential',
+    bitsPerChannel: 16,
+    processImageInputSize: 4,
     processImageOutputSize: 0,
     hasStatus: false,
   },
 
-  '750-459': {
-    moduleNumber: '750-459',
-    name: '4-AI 0-10V',
-    type: 'analog-input',
+  // Analog Output Modules
+  '750-563': {
+    moduleNumber: '750-563',
+    name: '2-AO 4-20mA',
+    type: 'analog-output',
+    channels: 2,
+    width: 1,
+    color: '#f59e0b',
+    description: '2-Channel Analog Output, 4-20mA',
+    bitsPerChannel: 16,
+    processImageInputSize: 0,
+    processImageOutputSize: 4,
+    hasStatus: false,
+  },
+  '750-555': {
+    moduleNumber: '750-555',
+    name: '4-AO 0-10V',
+    type: 'analog-output',
     channels: 4,
     width: 1,
-    color: '#9333ea',
-    description: '4-Channel Analog Input, 0-10V DC, 16-bit resolution',
+    color: '#f59e0b',
+    description: '4-Channel Analog Output, 0-10V',
     bitsPerChannel: 16,
-    processImageInputSize: 8, // 4 x 16-bit values
-    processImageOutputSize: 0,
+    processImageInputSize: 0,
+    processImageOutputSize: 8,
     hasStatus: false,
   },
 
@@ -134,24 +199,51 @@ export const MODULE_CATALOG: Record<string, ModuleDefinition> = {
     channels: 2,
     width: 1,
     color: '#16a34a',
-    description: '2-Channel RTD Input, Pt100/Pt1000, 0.1°C resolution',
+    description: '2-Channel RTD Input, Pt100',
     bitsPerChannel: 16,
-    processImageInputSize: 6, // 2 x (16-bit value + 8-bit status)
+    processImageInputSize: 4,
     processImageOutputSize: 0,
-    hasStatus: true,
+    hasStatus: false,
   },
-
-  '750-469': {
-    moduleNumber: '750-469',
-    name: '2-Thermocouple',
+  '750-464': {
+    moduleNumber: '750-464',
+    name: '4-RTD Config',
     type: 'rtd-input',
-    channels: 2,
+    channels: 4,
     width: 1,
     color: '#16a34a',
-    description: '2-Channel Thermocouple Input, Type K/J/N',
+    description: '4-Channel RTD Input, Configurable',
     bitsPerChannel: 16,
-    processImageInputSize: 6, // 2 x (16-bit value + 8-bit status)
+    processImageInputSize: 8,
     processImageOutputSize: 0,
+    hasStatus: false,
+  },
+
+  // Special/Counter Modules
+  '750-404': {
+    moduleNumber: '750-404',
+    name: 'Up/Down Counter',
+    type: 'special',
+    channels: 1, // Logical channels?
+    width: 1,
+    color: '#14b8a6',
+    description: 'Up/Down Counter, 100kHz, 32-bit',
+    bitsPerChannel: 32, // + status/control
+    processImageInputSize: 6,
+    processImageOutputSize: 6,
+    hasStatus: true,
+  },
+  '750-633': {
+    moduleNumber: '750-633',
+    name: 'Up/Down Counter',
+    type: 'special',
+    channels: 1,
+    width: 1,
+    color: '#14b8a6',
+    description: 'Up/Down Counter, 32-bit',
+    bitsPerChannel: 32,
+    processImageInputSize: 6,
+    processImageOutputSize: 6,
     hasStatus: true,
   },
 } as const;
@@ -174,10 +266,8 @@ export function getModulesByType(type: ModuleDefinition['type']): ModuleDefiniti
  * Get modules available for MVP (limited set)
  */
 export function getMVPModules(): ModuleDefinition[] {
-  const mvpModuleNumbers = ['750-362', '750-1405', '750-1504', '750-461', '750-455'];
-  return mvpModuleNumbers
-    .map(num => MODULE_CATALOG[num])
-    .filter((m): m is ModuleDefinition => m !== undefined);
+  // Return all modules except coupler for the catalog
+  return Object.values(MODULE_CATALOG).filter(m => m.type !== 'coupler');
 }
 
 /**
