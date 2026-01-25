@@ -12,7 +12,7 @@ test.describe('I/O Controls', () => {
     const rackPage = new RackPage(page);
 
     // Add DI module
-    await rackPage.leftPanel.locator('text=750-1405').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-1405');
 
     // Check channels are displayed
     const moduleSlot = page.locator('[data-slot="0"]');
@@ -25,7 +25,7 @@ test.describe('I/O Controls', () => {
     const rackPage = new RackPage(page);
 
     // Add DI module
-    await rackPage.leftPanel.locator('text=750-1405').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-1405');
 
     // Select module and channel
     await rackPage.selectModule(0);
@@ -39,7 +39,7 @@ test.describe('I/O Controls', () => {
     const rackPage = new RackPage(page);
 
     // Add AI module
-    await rackPage.leftPanel.locator('text=750-455').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-455');
 
     // Select module and channel
     await rackPage.selectModule(0);
@@ -54,7 +54,7 @@ test.describe('I/O Controls', () => {
     const rackPage = new RackPage(page);
 
     // Add RTD module
-    await rackPage.leftPanel.locator('text=750-461').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-461');
 
     // Select module and channel
     await rackPage.selectModule(0);
@@ -68,7 +68,7 @@ test.describe('I/O Controls', () => {
     const rackPage = new RackPage(page);
 
     // Add DO module
-    await rackPage.leftPanel.locator('text=750-1504').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-1504');
 
     // Select module and channel
     await rackPage.selectModule(0);

@@ -20,11 +20,11 @@ import { useRackStore } from '@/stores/rackStore';
 
 export function Toolbar() {
   const { zoom, zoomIn, zoomOut, resetZoom } = useUIStore();
-  const { config, simulationState, setSimulationState, createRack, resetAllIO } = useRackStore();
+  const { config, simulationState, startSimulation, stopSimulation, resetAllIO, createRack } = useRackStore();
 
-  const handleStart = () => setSimulationState('running');
-  const handlePause = () => setSimulationState('paused');
-  const handleStop = () => setSimulationState('stopped');
+  const handleStart = () => startSimulation();
+  const handlePause = () => {}; // Pause not implemented in MVP backend yet
+  const handleStop = () => stopSimulation();
 
   return (
     <div

@@ -21,7 +21,7 @@ test.describe('Rack Builder', () => {
     await rackPage.createNewRack();
 
     // Add a digital input module using the + button
-    await rackPage.leftPanel.locator('text=750-1405').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-1405');
 
     // Verify module appears in rack
     const moduleSlots = rackPage.getModuleSlots();
@@ -35,7 +35,7 @@ test.describe('Rack Builder', () => {
     await rackPage.createNewRack();
 
     // Add and select a module
-    await rackPage.leftPanel.locator('text=750-1405').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-1405');
     await rackPage.selectModule(0);
 
     // Verify properties panel shows module info
@@ -50,12 +50,11 @@ test.describe('Rack Builder', () => {
     await rackPage.createNewRack();
 
     // Add multiple modules
-    await rackPage.leftPanel.locator('text=750-1405').locator('..').locator('button').click();
-    await rackPage.leftPanel.locator('text=750-1504').locator('..').locator('button').click();
+    await rackPage.addModuleFromCatalog('750-1405');
+    await rackPage.addModuleFromCatalog('750-1504');
 
     // Verify modules appear in rack explorer
-    const rackExplorer = rackPage.leftPanel.locator('text=Rack Explorer').locator('..').locator('..');
-    await expect(rackExplorer).toContainText('750-1405');
-    await expect(rackExplorer).toContainText('750-1504');
+    await expect(rackPage.leftPanel).toContainText('750-1405');
+    await expect(rackPage.leftPanel).toContainText('750-1504');
   });
 });

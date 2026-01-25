@@ -162,6 +162,7 @@ function DraggableModule({ moduleNumber, name, type: _type, color, onAdd }: Drag
         e.dataTransfer.setData('moduleNumber', moduleNumber);
         e.dataTransfer.effectAllowed = 'copy';
       }}
+      data-module={moduleNumber}
     >
       <GripVertical className="w-3 h-3 text-panel-text-muted opacity-0 group-hover:opacity-100" />
       <div

@@ -110,8 +110,14 @@ export function MenuBar() {
     resetZoom,
   } = useUIStore();
 
-  const { createRack, clearRack, simulationState, setSimulationState, resetAllIO } =
-    useRackStore();
+  const {
+    createRack,
+    clearRack,
+    simulationState,
+    startSimulation,
+    stopSimulation,
+    resetAllIO,
+  } = useRackStore();
 
   const menus: { label: string; items: MenuItem[] }[] = [
     {
@@ -191,21 +197,21 @@ export function MenuBar() {
           id: 'start',
           label: 'Start',
           shortcut: 'F5',
-          action: () => setSimulationState('running'),
+          action: startSimulation,
           disabled: simulationState === 'running',
         },
         {
           id: 'pause',
           label: 'Pause',
           shortcut: 'F6',
-          action: () => setSimulationState('paused'),
-          disabled: simulationState !== 'running',
+          action: () => {},
+          disabled: true, // simulationState !== 'running'
         },
         {
           id: 'stop',
           label: 'Stop',
           shortcut: 'Shift+F5',
-          action: () => setSimulationState('stopped'),
+          action: stopSimulation,
           disabled: simulationState === 'stopped',
         },
         { id: 'div1', label: '', divider: true },

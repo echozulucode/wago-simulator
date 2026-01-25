@@ -14,13 +14,15 @@ test.describe('UI Shell', () => {
     const rackPage = new RackPage(page);
     await rackPage.goto();
 
+    const menuBar = page.locator('[data-testid="menu-bar"]');
+
     // Check menu items exist
-    await expect(page.getByText('File')).toBeVisible();
-    await expect(page.getByText('Edit')).toBeVisible();
-    await expect(page.getByText('View')).toBeVisible();
-    await expect(page.getByText('Simulation')).toBeVisible();
-    await expect(page.getByText('Tools')).toBeVisible();
-    await expect(page.getByText('Help')).toBeVisible();
+    await expect(menuBar.getByText('File')).toBeVisible();
+    await expect(menuBar.getByText('Edit')).toBeVisible();
+    await expect(menuBar.getByText('View')).toBeVisible();
+    await expect(menuBar.getByText('Simulation')).toBeVisible();
+    await expect(menuBar.getByText('Tools')).toBeVisible();
+    await expect(menuBar.getByText('Help')).toBeVisible();
   });
 
   test('should display toolbar buttons', async ({ page }) => {

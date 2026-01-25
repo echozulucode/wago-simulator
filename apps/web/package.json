@@ -11,10 +11,12 @@
     "lint": "eslint src --ext ts,tsx",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
+    "@tauri-apps/api": "^2.9.1",
     "@wago/shared": "workspace:*",
     "clsx": "^2.1.0",
     "lucide-react": "^0.312.0",
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.41.1",
+    "@tauri-apps/cli": "^2.9.6",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",

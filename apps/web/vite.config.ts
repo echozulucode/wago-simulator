@@ -10,18 +10,22 @@ export default defineConfig({
       '@wago/shared': path.resolve(__dirname, '../../packages/shared/src'),
     },
   },
+  // Tauri settings
+  clearScreen: false,
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-      '/ws': {
-        target: 'ws://localhost:3000',
-        ws: true,
-      },
+    strictPort: true,
+    host: true,
+    watch: {
+      ignored: ["**/src-tauri/**"],
     },
+  },
+  envPrefix: ['VITE_', 'TAURI_'],
+  define: {
+    // By default, Vite doesn't define this, but we can set it to false for browser dev
+    // 'window.__TAURI_INTERNALS__': JSON.stringify(false), 
+    // Actually, Tauri injects this at runtime. We don't want to overwrite it if it exists.
+    // So let's leave it alone.
   },
   build: {
     sourcemap: true,
