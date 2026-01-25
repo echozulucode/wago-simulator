@@ -18,7 +18,7 @@ export function CouplerCard({ config }: CouplerCardProps) {
 
   return (
     <div
-      className="relative flex flex-col w-20 bg-gradient-to-b from-gray-800 to-gray-900 rounded-sm shadow-md"
+      className="relative flex flex-col w-32 bg-gradient-to-b from-gray-800 to-gray-900 rounded-sm shadow-md"
       data-testid="coupler-card"
     >
       {/* Module type stripe */}

@@ -85,7 +85,7 @@ export function IOCard({
 
   if (!definition) {
     return (
-      <div className="w-16 h-48 bg-gray-800 rounded-sm flex items-center justify-center">
+      <div className="w-24 h-48 bg-gray-800 rounded-sm flex items-center justify-center">
         <span className="text-xxs text-gray-500 text-center px-1">Unknown module</span>
       </div>
     );
@@ -100,7 +100,7 @@ export function IOCard({
   return (
     <div
       className={cn(
-        'relative flex flex-col w-16 bg-gradient-to-b from-gray-200 to-gray-300 rounded-sm shadow-md cursor-pointer transition-all',
+        'relative flex flex-col w-24 bg-gradient-to-b from-gray-200 to-gray-300 rounded-sm shadow-md cursor-pointer transition-all',
         'hover:shadow-lg hover:brightness-105',
         selected && 'ring-2 ring-wago-orange ring-offset-1 ring-offset-gray-700'
       )}
