@@ -124,3 +124,4 @@ python scripts/modbus_client.py --demo  # Run demo writes
 
 - `docs/MODBUS_MAP.md` - Complete Modbus address mapping and data formats
 - `docs/STATUS.md` - Project status ledger (reverse-chronological). Update when completing significant work.
+- `docs/ai/issues.yaml` - Issue tracker (append-only). Log bugs, omissions, and improvements here.

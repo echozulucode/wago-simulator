@@ -267,12 +267,12 @@ def run_continuous_loop(client, interval=1.0):
     try:
         while True:
             # === Digital Outputs: Shift pattern ===
-            # Create a "knight rider" scanning pattern
-            bit_position = iteration % 14  # 0-6 forward, 7-13 backward
-            if bit_position < 7:
-                active_bit = bit_position
+            # Create a "knight rider" scanning pattern (0-7-0)
+            bit_position = iteration % 14  # 0-7 forward, then 6-1 backward
+            if bit_position < 8:
+                active_bit = bit_position  # 0,1,2,3,4,5,6,7
             else:
-                active_bit = 14 - bit_position - 1
+                active_bit = 14 - bit_position  # 6,5,4,3,2,1
 
             do_pattern = [i == active_bit for i in range(8)]
             write_coils(client, 0, do_pattern)

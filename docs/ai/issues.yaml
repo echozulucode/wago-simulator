@@ -1,0 +1,50 @@
+# AI Feedback Issue Register
+# Schema: See docs/ai/research/issue-log-research.md
+# Rules: Append-only history, never delete entries, preserve IDs
+
+issues:
+  - id: AI-ISSUE-2026012501
+    title: "Drag-drop modules from explorer panel does not work"
+    category: Bug
+    severity: Medium
+    priority: 2
+    confidence: High
+    scope: Local
+    observed: |
+      Dragging a module from the left Explorer panel and dropping it onto the
+      rack area does not add the module. The drag operation appears to start
+      (cursor changes), but dropping has no effect.
+    expected: |
+      Dragging a module type from the Explorer panel and dropping it onto the
+      rack should add a new instance of that module to the rack at the
+      appropriate slot position.
+    trace_link: "apps/web/src/components/layout/LeftPanel.tsx"
+    workaround: "Use the '+' button in the rack toolbar to add modules instead."
+    status: Open
+    next_action: "Investigate drag-drop event handlers in LeftPanel.tsx and WorkArea.tsx"
+    history:
+      - timestamp: 2026-01-25T12:00:00Z
+        note: "Issue created. Drag-drop was intended as primary module add method."
+
+  - id: AI-ISSUE-2026012502
+    title: "Module list lacks scrollbar when content overflows"
+    category: Bug
+    severity: Low
+    priority: 3
+    confidence: High
+    scope: Local
+    observed: |
+      When the Explorer panel's module list contains more items than can fit
+      in the visible area, there is no scrollbar visible. Users cannot access
+      modules that are outside the visible viewport.
+    expected: |
+      When the module list exceeds the available vertical space, a scrollbar
+      should appear (or the container should be scrollable) to allow access
+      to all available module types.
+    trace_link: "apps/web/src/components/layout/LeftPanel.tsx"
+    workaround: "Resize the window to be taller, or collapse other sections."
+    status: Open
+    next_action: "Add overflow-y-auto to the module list container in LeftPanel.tsx"
+    history:
+      - timestamp: 2026-01-25T12:00:00Z
+        note: "Issue created during UI testing."
