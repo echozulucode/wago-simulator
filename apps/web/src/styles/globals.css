@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Prevent text selection on UI elements */
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1e1e1e;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #525252;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: #1e1e1e;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    outline: 2px solid #ff6600;
+    outline-offset: 1px;
+  }
+
+  /* Disabled state */
+  [disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  /* Panel styles */
+  .panel {
+    @apply bg-panel-bg border border-panel-border;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between px-3 py-1.5 bg-panel-bg-secondary border-b border-panel-border text-xs font-medium uppercase tracking-wide text-panel-text-muted;
+  }
+
+  /* Menu styles */
+  .menu-item {
+    @apply flex items-center gap-2 px-3 py-1.5 text-sm text-panel-text hover:bg-menu-hover cursor-pointer transition-colors;
+  }
+
+  .menu-item-disabled {
+    @apply opacity-50 cursor-not-allowed hover:bg-transparent;
+  }
+
+  .menu-divider {
+    @apply my-1 border-t border-menu-border;
+  }
+
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wago-orange disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-wago-orange text-white hover:bg-wago-orange-dark;
+  }
+
+  .btn-secondary {
+    @apply bg-panel-active text-panel-text hover:bg-menu-hover border border-panel-border;
+  }
+
+  .btn-ghost {
+    @apply text-panel-text hover:bg-panel-hover;
+  }
+
+  .btn-danger {
+    @apply bg-status-error text-white hover:bg-red-600;
+  }
+
+  .btn-icon {
+    @apply p-1.5 rounded-sm;
+  }
+
+  /* Toolbar button */
+  .toolbar-btn {
+    @apply flex items-center justify-center w-8 h-8 rounded-sm text-panel-text hover:bg-panel-hover active:bg-panel-active transition-colors;
+  }
+
+  .toolbar-btn-active {
+    @apply bg-panel-active;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-2 py-1 text-sm bg-panel-bg border border-panel-border rounded-sm text-panel-text placeholder:text-panel-text-muted focus:border-wago-orange focus:outline-none;
+  }
+
+  .input-sm {
+    @apply px-1.5 py-0.5 text-xs;
+  }
+
+  /* LED indicator */
+  .led {
+    @apply rounded-full transition-all duration-100;
+  }
+
+  .led-xs {
+    @apply w-1.5 h-1.5;
+  }
+
+  .led-sm {
+    @apply w-2 h-2;
+  }
+
+  .led-md {
+    @apply w-3 h-3;
+  }
+
+  .led-off {
+    @apply bg-led-off border border-led-off-border;
+  }
+
+  .led-green {
+    @apply bg-led-green shadow-led-green;
+  }
+
+  .led-red {
+    @apply bg-led-red shadow-led-red;
+  }
+
+  .led-yellow {
+    @apply bg-led-yellow shadow-led-yellow;
+  }
+
+  .led-blue {
+    @apply bg-led-blue shadow-led-blue;
+  }
+
+  /* Tree view */
+  .tree-item {
+    @apply flex items-center gap-1.5 px-2 py-0.5 text-sm text-panel-text hover:bg-panel-hover cursor-pointer rounded-sm;
+  }
+
+  .tree-item-selected {
+    @apply bg-panel-active;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    @apply absolute z-50 px-2 py-1 text-xs bg-gray-900 text-white rounded shadow-lg pointer-events-none animate-fade-in;
+  }
+
+  /* Resizer handle */
+  .resizer {
+    @apply absolute bg-transparent hover:bg-wago-orange/30 transition-colors cursor-col-resize;
+  }
+
+  .resizer-horizontal {
+    @apply w-1 top-0 bottom-0 cursor-col-resize;
+  }
+
+  .resizer-vertical {
+    @apply h-1 left-0 right-0 cursor-row-resize;
+  }
+}
+
+@layer utilities {
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Truncate with ellipsis */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Module card colors */
+  .module-stripe-di {
+    @apply bg-blue-600;
+  }
+
+  .module-stripe-do {
+    @apply bg-red-600;
+  }
+
+  .module-stripe-ai {
+    @apply bg-purple-600;
+  }
+
+  .module-stripe-rtd {
+    @apply bg-green-600;
+  }
+
+  .module-stripe-coupler {
+    @apply bg-gray-700;
+  }
+}
