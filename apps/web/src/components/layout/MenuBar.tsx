@@ -165,10 +165,15 @@ export function MenuBar() {
       label: 'File',
       items: [
         { id: 'new', label: 'New Rack', shortcut: 'Ctrl+N', action: () => createRack('New Rack') },
-        { id: 'open', label: 'Open...', shortcut: 'Ctrl+O', action: () => {}, disabled: true },
-        { 
-            id: 'recent', 
-            label: 'Open Config (YAML)', 
+        { id: 'open', label: 'Open...', shortcut: 'Ctrl+O', action: async () => {
+            const path = await tauriApi.openConfigDialog();
+            if (path) {
+              loadConfig(path);
+            }
+        }},
+        {
+            id: 'recent',
+            label: 'Recent Configs',
             disabled: configFiles.length === 0,
             submenu: configFiles.map(file => ({
                 id: `file-${file}`,

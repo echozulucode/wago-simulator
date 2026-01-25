@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
 import type { RackConfig, ModuleInstance, ModuleState, SimulationState } from '@wago/shared';
 import { mockInvoke } from '../mocks/tauriMock';
 
@@ -46,5 +47,18 @@ export const tauriApi = {
 
   stopSimulation: async (): Promise<void> => {
     return await invoke('stop_simulation');
+  },
+
+  openConfigDialog: async (): Promise<string | null> => {
+    if (!isTauri) {
+      console.warn('File dialog not available outside Tauri');
+      return null;
+    }
+    const selected = await tauriOpen({
+      multiple: false,
+      filters: [{ name: 'YAML Config', extensions: ['yaml', 'yml'] }],
+      title: 'Open Rack Configuration',
+    });
+    return selected as string | null;
   },
 };

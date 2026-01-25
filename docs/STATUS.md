@@ -1,19 +1,43 @@
 # Project Status: WAGO 750 Simulator
 
-Last Updated: 2026-01-24
+Last Updated: 2026-01-25
 
 ## I. Current Context (The "State")
 
-*   **Active Sprint/Phase:** Phase 2: Core Simulation Engine (Complete) -> Phase 3: UI Visualization
-*   **Current Objective:** Verify complex modules (Counters) and runtime behavior.
-*   **Current Blockers:** None.
+*   **Active Sprint/Phase:** Phase 3: UI Polish & Documentation
+*   **Current Objective:** File open dialog, Modbus testing tools, documentation.
+*   **Current Blockers:** Drag-and-drop for adding modules still not working.
 *   **Active Working Files:**
-    *   `apps/web/src-tauri/src/modules.rs`
-    *   `apps/web/src-tauri/src/state.rs`
+    *   `apps/web/src/components/layout/MenuBar.tsx`
+    *   `docs/MODBUS_MAP.md`
+    *   `scripts/modbus_client.py`
 
 ## II. Execution Log (The "Ledger")
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
+
+### [2026-01-25] - Native File Dialog & Modbus Documentation
+
+*   **Action:** Added native file open dialog for loading rack configs.
+*   **Detail:**
+    *   Enabled `tauri-plugin-dialog` in Rust backend and capabilities.
+    *   Added `openConfigDialog()` to frontend API using `@tauri-apps/plugin-dialog`.
+    *   Updated "Open..." menu item to use native OS file picker.
+*   **Outcome:** Success. File > Open now shows standard OS dialog.
+*   **Artifacts:**
+    *   `apps/web/src-tauri/src/lib.rs` (plugin init)
+    *   `apps/web/src-tauri/capabilities/default.json` (permissions)
+    *   `apps/web/src/api/tauri.ts` (dialog API)
+    *   `apps/web/src/components/layout/MenuBar.tsx` (menu action)
+
+### [2026-01-25] - Modbus Client Script & Address Documentation
+
+*   **Action:** Created Python Modbus client and comprehensive address mapping docs.
+*   **Detail:**
+    *   `scripts/modbus_client.py`: Demo script using pymodbus to read/write simulator.
+    *   `docs/MODBUS_MAP.md`: Complete documentation of Modbus address mapping.
+*   **Outcome:** Success. External clients can now test against simulator.
+*   **Artifacts:** `scripts/modbus_client.py`, `docs/MODBUS_MAP.md`
 
 ### [2026-01-24] - Counter Module Implementation
 

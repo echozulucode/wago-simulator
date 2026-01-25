@@ -43,9 +43,13 @@ racks:
         channels: []
       - id: 'r0m2'
         model: '750-455'
-        name: 'AI_SPARES'
+        name: 'AI_PROCESS'
         channels: []
       - id: 'r0m3'
         model: '750-464'
         name: 'RTD_WATER'
+        channels: []
+      - id: 'r0m4'
+        model: '750-563'
+        name: 'AO_VALVES'
         channels: []
