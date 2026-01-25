@@ -4,11 +4,10 @@
   "private": true,
   "description": "WAGO 750 I/O System Simulator",
   "scripts": {
-    "dev": "concurrently \"pnpm --filter @wago/server dev\" \"pnpm --filter @wago/web dev\"",
-    "build": "pnpm --filter @wago/shared build && pnpm --filter @wago/server build && pnpm --filter @wago/web build",
-    "test": "pnpm --filter \"./packages/*\" test && pnpm --filter \"./apps/*\" test",
+    "dev": "pnpm --filter @wago/web dev",
+    "build": "pnpm --filter @wago/shared build && pnpm --filter @wago/web build",
+    "test": "pnpm --filter \"./packages/*\" test && pnpm --filter @wago/web test",
     "test:e2e": "pnpm --filter @wago/web test:e2e",
-    "test:modbus": "pnpm --filter @wago/server test:modbus",
     "lint": "eslint --ext .ts,.tsx apps packages",
     "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"packages/**/*.ts\"",
     "typecheck": "pnpm -r typecheck",
@@ -16,7 +15,6 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "prettier": "^3.2.4",
     "rimraf": "^5.0.5",

@@ -53,6 +53,9 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
       mockModuleStates = [];
       return mockConfig;
 
+    case 'list_configs':
+      return [];
+
     case 'add_module':
       if (!mockConfig) throw new Error('No rack');
       const id = `module-${++moduleIdCounter}`;

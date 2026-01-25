@@ -4,6 +4,14 @@
 
 This document outlines a phased approach to building a Minimum Viable Product (MVP) for the WAGO 750 I/O System Simulator. The MVP focuses on a **single rack configuration** with a limited set of I/O modules, a **polished, production-ready UI shell**, and comprehensive testing infrastructure using Playwright and Modbus clients.
 
+## Current Status Snapshot (2026-01-25)
+
+- The primary simulator backend is now **Rust inside Tauri** (`apps/web/src-tauri`), including Modbus TCP and WAGO-specific behaviors.
+- The **UI shell and rack visualization** are in place; E2E tests are green and manual I/O controls work.
+- **Native file open** is implemented via Tauri dialog; save/export flows are still stubbed.
+- **Drag-and-drop module placement remains blocked** (known issue).
+- Scenario system and settings dialog are **not implemented yet**.
+
 ---
 
 ## Technology Stack
@@ -16,34 +24,30 @@ This document outlines a phased approach to building a Minimum Viable Product (M
 | **Vite** | Fast build tool and dev server |
 | **Tailwind CSS** | Utility-first styling |
 | **Zustand** | Lightweight state management |
-| **React Query** | Server state and API caching |
+| **Tauri JS API** | Desktop bridge for native dialogs and backend invokes |
 | **Lucide React** | Consistent icon library |
 | **Headless UI** | Accessible UI primitives |
 
 ### Backend
 | Technology | Purpose |
 |------------|---------|
-| **Node.js + Express** | REST API server |
-| **TypeScript** | Shared types with frontend |
-| **modbus-serial** | Modbus TCP server implementation |
-| **WebSocket (ws)** | Real-time UI updates |
-| **Zod** | Runtime validation |
+| **Tauri (Rust)** | Primary simulator backend and desktop shell |
+| **tokio-modbus** | Modbus TCP server implementation |
+| **Rust** | Process image, watchdog, and module logic |
 
 ### Testing
 | Technology | Purpose |
 |------------|---------|
 | **Playwright** | End-to-end browser testing |
 | **Vitest** | Unit and integration tests |
-| **modbus-serial (client mode)** | Modbus protocol testing |
-| **MSW** | API mocking for frontend tests |
+| **pymodbus (scripts)** | Modbus protocol testing from Python |
 
 ### DevOps
 | Technology | Purpose |
 |------------|---------|
 | **pnpm** | Fast, disk-efficient package manager |
 | **ESLint + Prettier** | Code quality and formatting |
-| **Husky** | Git hooks for pre-commit checks |
-| **GitHub Actions** | CI/CD pipeline |
+| **Tauri CLI** | Desktop build and packaging workflow |
 
 ---
 
@@ -56,15 +60,16 @@ This document outlines a phased approach to building a Minimum Viable Product (M
   - **750-1504**: 16-Channel Digital Output (24V DC)
   - **750-461**: 2-Channel RTD Input (Pt100)
   - **750-455**: 4-Channel Analog Input (4-20mA)
+  - Note: The shared catalog already includes additional DI/DO/AO/Counter modules; support should be validated per module.
 
 ### MVP Features
 1. Visual rack builder with drag-and-drop card placement
 2. Real-time I/O state visualization
 3. Manual override controls for all I/O points
 4. Modbus TCP server (port 502)
-5. WebSocket-based live updates
-6. Basic scenario loading (JSON-based)
-7. Full UI shell (menus, toolbars, panels, status bar)
+5. Tauri desktop shell with native file open
+6. Full UI shell (menus, toolbars, panels, status bar)
+7. Scenario system (deferred to post-MVP)
 
 ---
 
@@ -73,168 +78,16 @@ This document outlines a phased approach to building a Minimum Viable Product (M
 ```
 wago-simulator/
 ├── apps/
-│   ├── web/                      # React frontend (Vite)
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── layout/       # App shell components
-│   │   │   │   │   ├── AppShell.tsx
-│   │   │   │   │   ├── MenuBar.tsx
-│   │   │   │   │   ├── Toolbar.tsx
-│   │   │   │   │   ├── LeftPanel.tsx
-│   │   │   │   │   ├── RightPanel.tsx
-│   │   │   │   │   ├── StatusBar.tsx
-│   │   │   │   │   └── WorkArea.tsx
-│   │   │   │   ├── rack/         # Rack visualization
-│   │   │   │   │   ├── RackView.tsx
-│   │   │   │   │   ├── ModuleSlot.tsx
-│   │   │   │   │   ├── CouplerCard.tsx
-│   │   │   │   │   └── IOCard.tsx
-│   │   │   │   ├── modules/      # Per-module-type components
-│   │   │   │   │   ├── DigitalInputCard.tsx
-│   │   │   │   │   ├── DigitalOutputCard.tsx
-│   │   │   │   │   ├── AnalogInputCard.tsx
-│   │   │   │   │   └── RTDInputCard.tsx
-│   │   │   │   ├── controls/     # Reusable UI controls
-│   │   │   │   │   ├── LEDIndicator.tsx
-│   │   │   │   │   ├── ToggleSwitch.tsx
-│   │   │   │   │   ├── ValueDisplay.tsx
-│   │   │   │   │   ├── Slider.tsx
-│   │   │   │   │   └── NumericInput.tsx
-│   │   │   │   ├── dialogs/      # Modal dialogs
-│   │   │   │   │   ├── AddModuleDialog.tsx
-│   │   │   │   │   ├── SettingsDialog.tsx
-│   │   │   │   │   └── AboutDialog.tsx
-│   │   │   │   └── common/       # Shared components
-│   │   │   │       ├── Button.tsx
-│   │   │   │       ├── Dropdown.tsx
-│   │   │   │       ├── Tooltip.tsx
-│   │   │   │       └── Panel.tsx
-│   │   │   ├── hooks/            # Custom React hooks
-│   │   │   │   ├── useModbus.ts
-│   │   │   │   ├── useWebSocket.ts
-│   │   │   │   ├── useRackState.ts
-│   │   │   │   └── useKeyboardShortcuts.ts
-│   │   │   ├── stores/           # Zustand stores
-│   │   │   │   ├── rackStore.ts
-│   │   │   │   ├── uiStore.ts
-│   │   │   │   └── connectionStore.ts
-│   │   │   ├── api/              # API client functions
-│   │   │   │   ├── client.ts
-│   │   │   │   ├── rack.ts
-│   │   │   │   └── modules.ts
-│   │   │   ├── types/            # TypeScript types
-│   │   │   │   ├── rack.ts
-│   │   │   │   ├── modules.ts
-│   │   │   │   └── api.ts
-│   │   │   ├── utils/            # Utility functions
-│   │   │   │   ├── modbus.ts
-│   │   │   │   └── formatting.ts
-│   │   │   ├── styles/           # Global styles
-│   │   │   │   └── globals.css
-│   │   │   ├── App.tsx
-│   │   │   └── main.tsx
-│   │   ├── index.html
-│   │   ├── vite.config.ts
-│   │   ├── tailwind.config.js
-│   │   ├── postcss.config.js
-│   │   └── tsconfig.json
-│   │
-│   └── server/                   # Node.js backend
-│       ├── src/
-│       │   ├── index.ts          # Entry point
-│       │   ├── server.ts         # Express app setup
-│       │   ├── modbus/           # Modbus TCP server
-│       │   │   ├── ModbusServer.ts
-│       │   │   ├── ProcessImage.ts
-│       │   │   └── AddressMap.ts
-│       │   ├── modules/          # I/O module implementations
-│       │   │   ├── BaseModule.ts
-│       │   │   ├── ModuleFactory.ts
-│       │   │   ├── ModuleRegistry.ts
-│       │   │   ├── DigitalInputModule.ts
-│       │   │   ├── DigitalOutputModule.ts
-│       │   │   ├── AnalogInputModule.ts
-│       │   │   └── RTDModule.ts
-│       │   ├── rack/             # Rack management
-│       │   │   ├── Rack.ts
-│       │   │   ├── RackManager.ts
-│       │   │   └── Coupler.ts
-│       │   ├── scenarios/        # Scenario engine
-│       │   │   ├── ScenarioLoader.ts
-│       │   │   ├── ScenarioRunner.ts
-│       │   │   └── types.ts
-│       │   ├── websocket/        # WebSocket handler
-│       │   │   └── WSHandler.ts
-│       │   ├── routes/           # REST API routes
-│       │   │   ├── rack.ts
-│       │   │   ├── modules.ts
-│       │   │   ├── scenarios.ts
-│       │   │   └── system.ts
-│       │   ├── config/           # Configuration
-│       │   │   ├── default.ts
-│       │   │   └── schema.ts
-│       │   └── types/            # TypeScript types
-│       │       ├── rack.ts
-│       │       ├── modules.ts
-│       │       └── modbus.ts
-│       ├── tsconfig.json
-│       └── package.json
-│
+│   ├── web/                      # React frontend (Vite) + Tauri shell
+│   │   ├── src/                  # UI components, stores, hooks
+│   │   └── src-tauri/            # Rust backend (Modbus server, state, config)
 ├── packages/
-│   └── shared/                   # Shared types and utilities
-│       ├── src/
-│       │   ├── types/
-│       │   │   ├── rack.ts
-│       │   │   ├── modules.ts
-│       │   │   └── api.ts
-│       │   ├── constants/
-│       │   │   ├── modules.ts    # Module definitions
-│       │   │   └── modbus.ts     # Modbus constants
-│       │   └── index.ts
-│       ├── tsconfig.json
-│       └── package.json
-│
+│   └── shared/                   # Shared types and constants
 ├── tests/
-│   ├── e2e/                      # Playwright tests
-│   │   ├── fixtures/
-│   │   │   └── test-rack.json
-│   │   ├── pages/                # Page Object Models
-│   │   │   ├── BasePage.ts
-│   │   │   ├── RackPage.ts
-│   │   │   └── SettingsPage.ts
-│   │   ├── specs/
-│   │   │   ├── rack-builder.spec.ts
-│   │   │   ├── io-visualization.spec.ts
-│   │   │   ├── manual-override.spec.ts
-│   │   │   └── modbus-integration.spec.ts
-│   │   └── playwright.config.ts
-│   │
-│   ├── modbus/                   # Modbus client tests
-│   │   ├── client.ts             # Test Modbus client
-│   │   ├── digital-io.test.ts
-│   │   ├── analog-io.test.ts
-│   │   └── rtd-io.test.ts
-│   │
-│   └── unit/                     # Unit tests
-│       ├── modules/
-│       └── utils/
-│
-├── scenarios/                    # Scenario files
-│   ├── default.json
-│   └── test-sequence.json
-│
-├── docs/
-│   └── ai/
-│       └── plans/
-│           ├── wago-750-simulator-design.md
-│           └── mvp-implementation-plan.md
-│
-├── pnpm-workspace.yaml
-├── package.json
-├── tsconfig.base.json
-├── .eslintrc.js
-├── .prettierrc
-└── README.md
+│   └── e2e/                      # Playwright tests
+├── scripts/                      # Python Modbus utilities
+├── docs/                         # Design notes and Modbus map
+└── package.json
 ```
 
 ---
@@ -245,12 +98,12 @@ wago-simulator/
 **Goal**: Set up monorepo structure with all tooling configured.
 
 #### Tasks
-- [ ] Initialize pnpm workspace with `apps/web`, `apps/server`, `packages/shared`
+- [ ] Initialize pnpm workspace with `apps/web`, `apps/web/src-tauri`, `packages/shared`
 - [ ] Configure Vite for React + TypeScript
 - [ ] Configure Tailwind CSS with custom theme (WAGO orange: `#FF6600`)
-- [ ] Set up ESLint, Prettier, Husky
+- [ ] Set up ESLint and Prettier
 - [ ] Create TypeScript path aliases across packages
-- [ ] Configure development proxy (Vite → Express)
+- [ ] Configure Tauri dev workflow and permissions
 
 #### Deliverables
 ```typescript
@@ -539,278 +392,46 @@ module.exports = {
 };
 ```
 
-### 1.3 Backend Foundation
-**Goal**: Set up Express server with basic REST API and WebSocket support.
+### 1.3 Tauri Backend Foundation
+**Goal**: Set up Rust backend with Tauri commands and configuration schema.
 
 #### Tasks
-- [ ] Create Express server with TypeScript
-- [ ] Set up REST API routes (CRUD for rack configuration)
-- [ ] Implement WebSocket server for real-time updates
-- [ ] Create basic rack and module data structures
-- [ ] Implement module factory pattern
-
-#### API Endpoints
-```typescript
-// Rack Management
-GET    /api/rack              // Get current rack configuration
-POST   /api/rack              // Create/replace rack configuration
-DELETE /api/rack              // Clear rack
-
-// Module Management
-GET    /api/modules           // List available module types
-GET    /api/rack/modules      // List modules in current rack
-POST   /api/rack/modules      // Add module to rack
-DELETE /api/rack/modules/:id  // Remove module from rack
-PATCH  /api/rack/modules/:id  // Update module position/config
-
-// I/O State
-GET    /api/io                // Get all I/O states
-GET    /api/io/:moduleId      // Get specific module I/O state
-PUT    /api/io/:moduleId/:channel  // Set I/O value (manual override)
-
-// Simulation Control
-POST   /api/simulation/start  // Start simulation
-POST   /api/simulation/pause  // Pause simulation
-POST   /api/simulation/stop   // Stop simulation
-GET    /api/simulation/status // Get simulation status
-
-// Scenarios
-GET    /api/scenarios         // List available scenarios
-POST   /api/scenarios/load    // Load and run scenario
-
-// System
-GET    /api/system/health     // Health check
-GET    /api/system/info       // System information
-```
+- [ ] Initialize Tauri app in `apps/web/src-tauri`
+- [ ] Implement core commands: `get_rack_state`, `create_rack`, `load_config`, `add_module`, `remove_module`, `set_channel_value`, `start_simulation`, `stop_simulation`
+- [ ] Wire plugin permissions (dialogs, file system as needed)
+- [ ] Define YAML config schema in `sim_config.rs` and validate inputs
 
 ---
 
 ## Phase 2: Core Simulation Engine (Week 3-4)
 
-### 2.1 Modbus TCP Server Implementation
-**Goal**: Implement WAGO-compatible Modbus TCP server.
+**Status (2026-01-25):** Core simulation logic is implemented in Rust under `apps/web/src-tauri`, including Modbus TCP, watchdog handling, and WAGO-specific register behavior.
 
-#### Architecture
-```typescript
-// apps/server/src/modbus/ModbusServer.ts
-export class ModbusServer {
-  private server: net.Server;
-  private processImage: ProcessImage;
-  private clients: Map<string, ModbusClient>;
+### 2.1 Modbus + Process Image (Rust)
+- Implemented in `apps/web/src-tauri/src/server.rs`, `state.rs`, and `sim_config.rs`.
+- Uses WAGO address mapping documented in `docs/MODBUS_MAP.md`.
+- Watchdog and metadata registers are implemented in Rust.
 
-  constructor(port: number = 502) { ... }
+### 2.2 Module Catalog + Rack State
+- Module definitions live in `packages/shared/src/constants/modules.ts`.
+- Rust module behavior is implemented in `apps/web/src-tauri/src/modules.rs`.
+- Rack/config state lives in `apps/web/src-tauri/src/state.rs`.
 
-  // Supported function codes
-  handleReadCoils(startAddr: number, quantity: number): boolean[];
-  handleReadDiscreteInputs(startAddr: number, quantity: number): boolean[];
-  handleReadHoldingRegisters(startAddr: number, quantity: number): number[];
-  handleReadInputRegisters(startAddr: number, quantity: number): number[];
-  handleWriteSingleCoil(addr: number, value: boolean): void;
-  handleWriteSingleRegister(addr: number, value: number): void;
-  handleWriteMultipleCoils(startAddr: number, values: boolean[]): void;
-  handleWriteMultipleRegisters(startAddr: number, values: number[]): void;
-}
-```
-
-#### Process Image Structure
-```typescript
-// Mirrors WAGO 750-362 memory layout
-export class ProcessImage {
-  // Input process image (read by master)
-  private inputCoils: BitArray;        // Discrete inputs (DI states)
-  private inputRegisters: Uint16Array; // Analog inputs, RTD values
-
-  // Output process image (written by master)
-  private outputCoils: BitArray;       // Discrete outputs (DO commands)
-  private holdingRegisters: Uint16Array; // Analog outputs, config
-
-  // Address mapping per module
-  private moduleAddressMap: Map<string, AddressRange>;
-
-  buildFromRack(rack: Rack): void;
-  getModuleInputAddress(moduleId: string): AddressRange;
-  getModuleOutputAddress(moduleId: string): AddressRange;
-}
-```
-
-### 2.2 Module Implementations
-**Goal**: Implement the 4 MVP module types with accurate data formats.
-
-#### Base Module Interface
-```typescript
-// apps/server/src/modules/BaseModule.ts
-export interface IModule {
-  readonly id: string;
-  readonly type: string;
-  readonly moduleNumber: string;  // e.g., "750-1405"
-  readonly channels: number;
-  readonly processImageSize: number;
-
-  // Process image interaction
-  readInputs(): Uint8Array;
-  writeOutputs(data: Uint8Array): void;
-
-  // Simulation
-  setChannelValue(channel: number, value: number | boolean): void;
-  getChannelValue(channel: number): number | boolean;
-  setFault(channel: number, fault: FaultType): void;
-  clearFault(channel: number): void;
-
-  // State serialization
-  getState(): ModuleState;
-  setState(state: ModuleState): void;
-}
-```
-
-#### Digital Input Module (750-1405)
-```typescript
-export class DigitalInputModule implements IModule {
-  moduleNumber = '750-1405';
-  channels = 16;
-  processImageSize = 2; // 16 bits = 2 bytes
-
-  private inputStates: boolean[] = new Array(16).fill(false);
-  private faults: FaultType[] = new Array(16).fill(null);
-
-  readInputs(): Uint8Array {
-    // Pack 16 booleans into 2 bytes, LSB first (WAGO format)
-    const byte0 = this.packByte(this.inputStates.slice(0, 8));
-    const byte1 = this.packByte(this.inputStates.slice(8, 16));
-    return new Uint8Array([byte0, byte1]);
-  }
-
-  setChannelValue(channel: number, value: boolean): void {
-    this.inputStates[channel] = value;
-    this.emit('change', { channel, value });
-  }
-}
-```
-
-#### Digital Output Module (750-1504)
-```typescript
-export class DigitalOutputModule implements IModule {
-  moduleNumber = '750-1504';
-  channels = 16;
-  processImageSize = 2;
-
-  private outputStates: boolean[] = new Array(16).fill(false);
-
-  writeOutputs(data: Uint8Array): void {
-    // Unpack 2 bytes into 16 booleans
-    this.outputStates = [
-      ...this.unpackByte(data[0]),
-      ...this.unpackByte(data[1]),
-    ];
-    this.emit('change', { states: this.outputStates });
-  }
-
-  // Readback for verification
-  readInputs(): Uint8Array {
-    return this.packStates(this.outputStates);
-  }
-}
-```
-
-#### RTD Input Module (750-461)
-```typescript
-export class RTDModule implements IModule {
-  moduleNumber = '750-461';
-  channels = 2;
-  processImageSize = 6; // 2x (16-bit value + 8-bit status)
-
-  private temperatures: number[] = [20.0, 20.0]; // °C
-  private statuses: number[] = [0, 0];
-
-  readInputs(): Uint8Array {
-    // WAGO format: [Value_Lo, Value_Hi, Status] per channel
-    const buffer = new Uint8Array(6);
-    for (let ch = 0; ch < 2; ch++) {
-      const rawValue = this.temperatureToRaw(this.temperatures[ch]);
-      buffer[ch * 3 + 0] = rawValue & 0xFF;
-      buffer[ch * 3 + 1] = (rawValue >> 8) & 0xFF;
-      buffer[ch * 3 + 2] = this.statuses[ch];
-    }
-    return buffer;
-  }
-
-  private temperatureToRaw(tempC: number): number {
-    // WAGO Pt100: 0.1°C resolution, -200 to +850°C range
-    // Raw value = (temp + 200) * 10
-    return Math.round((tempC + 200) * 10);
-  }
-
-  setTemperature(channel: number, tempC: number): void {
-    this.temperatures[channel] = Math.max(-200, Math.min(850, tempC));
-    this.emit('change', { channel, temperature: this.temperatures[channel] });
-  }
-}
-```
-
-#### Analog Input Module (750-455)
-```typescript
-export class AnalogInputModule implements IModule {
-  moduleNumber = '750-455';
-  channels = 4;
-  processImageSize = 8; // 4x 16-bit values
-
-  private values: number[] = [4.0, 4.0, 4.0, 4.0]; // mA
-
-  readInputs(): Uint8Array {
-    const buffer = new Uint8Array(8);
-    for (let ch = 0; ch < 4; ch++) {
-      const rawValue = this.currentToRaw(this.values[ch]);
-      buffer[ch * 2 + 0] = rawValue & 0xFF;
-      buffer[ch * 2 + 1] = (rawValue >> 8) & 0xFF;
-    }
-    return buffer;
-  }
-
-  private currentToRaw(mA: number): number {
-    // WAGO 750-455: 4-20mA mapped to 0x0000-0x7FFF
-    // 4mA = 0x0000, 20mA = 0x7FFF
-    const normalized = (mA - 4) / 16; // 0.0 to 1.0
-    return Math.round(normalized * 0x7FFF);
-  }
-
-  setCurrent(channel: number, mA: number): void {
-    this.values[channel] = Math.max(0, Math.min(24, mA)); // Allow 0-24mA
-    this.emit('change', { channel, current: this.values[channel] });
-  }
-}
-```
-
-### 2.3 Module Factory
-```typescript
-// apps/server/src/modules/ModuleFactory.ts
-export class ModuleFactory {
-  private static registry: Map<string, ModuleConstructor> = new Map([
-    ['750-1405', DigitalInputModule],
-    ['750-1504', DigitalOutputModule],
-    ['750-461', RTDModule],
-    ['750-455', AnalogInputModule],
-  ]);
-
-  static create(moduleNumber: string, slotPosition: number): IModule {
-    const Constructor = this.registry.get(moduleNumber);
-    if (!Constructor) {
-      throw new Error(`Unknown module: ${moduleNumber}`);
-    }
-    return new Constructor(slotPosition);
-  }
-
-  static register(moduleNumber: string, constructor: ModuleConstructor): void {
-    this.registry.set(moduleNumber, constructor);
-  }
-
-  static getAvailableModules(): ModuleDefinition[] {
-    return Array.from(this.registry.keys()).map(num => MODULE_CATALOG[num]);
-  }
-}
-```
+**Remaining Work**
+- Align YAML rack config schema with Tauri (`sim_config.rs`) and the UI.
+- Add regression tests for address map and process image packing.
+- Validate non-MVP modules (AO/counters) against real WAGO formats.
 
 ---
 
 ## Phase 3: UI Visualization (Week 5-6)
+
+**Status (2026-01-25):** UI shell, rack view, module cards, and manual override controls are implemented; Playwright E2E tests are passing. The major blocker is drag-and-drop placement from the module catalog.
+
+**Remaining Work**
+- Fix drag-and-drop add/reorder behavior in the rack builder.
+- Enable save/save-as/export in MenuBar/Toolbar (open is already wired to Tauri).
+- Tighten selection/state syncing between rack view, explorer, and properties panel.
 
 ### 3.1 Rack Visualization Component
 **Goal**: Create photorealistic rack visualization with interactive modules.
@@ -1105,57 +726,22 @@ export function ChannelOverride({ module, channel }: ChannelOverrideProps) {
 }
 ```
 
-### 3.3 Real-time Updates via WebSocket
-**Goal**: Push I/O state changes to UI in real-time.
+### 3.3 Real-time Updates (Tauri)
+**Goal**: Keep UI state in sync with the Rust backend.
 
-```typescript
-// apps/web/src/hooks/useWebSocket.ts
-export function useWebSocket() {
-  const [connected, setConnected] = useState(false);
-  const { updateModuleState, setConnectionStatus } = useRackStore();
-
-  useEffect(() => {
-    const ws = new WebSocket(`ws://${window.location.host}/ws`);
-
-    ws.onopen = () => {
-      setConnected(true);
-      setConnectionStatus('connected');
-    };
-
-    ws.onclose = () => {
-      setConnected(false);
-      setConnectionStatus('disconnected');
-    };
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-
-      switch (message.type) {
-        case 'io-update':
-          updateModuleState(message.moduleId, message.values);
-          break;
-        case 'client-connected':
-          // Handle Modbus client connect
-          break;
-        case 'client-disconnected':
-          // Handle Modbus client disconnect
-          break;
-        case 'simulation-state':
-          // Handle simulation state change
-          break;
-      }
-    };
-
-    return () => ws.close();
-  }, []);
-
-  return { connected };
-}
-```
+- Use polling via `get_rack_state` or a Tauri event emitter.
+- Track connection status in `connectionStore` for status bar updates.
 
 ---
 
 ## Phase 4: Testing Infrastructure (Week 7-8)
+
+**Status (2026-01-25):** Playwright E2E tests are stable; Python Modbus client utilities and `docs/MODBUS_MAP.md` are in place.
+
+**Remaining Work**
+- Add automated Modbus protocol tests and wire them into CI.
+- Expand Vitest coverage around process-image packing and module logic.
+- Add fixtures for YAML rack configs and Modbus edge cases.
 
 ### 4.1 Playwright E2E Tests
 **Goal**: Comprehensive browser-based testing of all UI interactions.
@@ -1425,327 +1011,38 @@ test.describe('Manual Override', () => {
 ```
 
 ### 4.2 Modbus Client Testing
-**Goal**: Verify Modbus TCP protocol compliance using a dedicated test client.
+**Goal**: Verify Modbus TCP protocol compliance from external clients.
 
-#### Test Modbus Client Setup
-```typescript
-// tests/modbus/client.ts
-import ModbusRTU from 'modbus-serial';
+**Current Approach**
+- Use `scripts/modbus_client.py` for read/write smoke tests.
+- Validate addresses against `docs/MODBUS_MAP.md`.
 
-export class TestModbusClient {
-  private client: ModbusRTU;
-
-  constructor() {
-    this.client = new ModbusRTU();
-  }
-
-  async connect(host: string = 'localhost', port: number = 502): Promise<void> {
-    await this.client.connectTCP(host, { port });
-    this.client.setID(1);
-    this.client.setTimeout(5000);
-  }
-
-  async disconnect(): Promise<void> {
-    this.client.close(() => {});
-  }
-
-  // Digital Inputs (Function Code 02)
-  async readDiscreteInputs(startAddr: number, quantity: number): Promise<boolean[]> {
-    const result = await this.client.readDiscreteInputs(startAddr, quantity);
-    return result.data;
-  }
-
-  // Digital Outputs / Coils (Function Code 01, 05, 15)
-  async readCoils(startAddr: number, quantity: number): Promise<boolean[]> {
-    const result = await this.client.readCoils(startAddr, quantity);
-    return result.data;
-  }
-
-  async writeSingleCoil(addr: number, value: boolean): Promise<void> {
-    await this.client.writeCoil(addr, value);
-  }
-
-  async writeMultipleCoils(startAddr: number, values: boolean[]): Promise<void> {
-    await this.client.writeCoils(startAddr, values);
-  }
-
-  // Analog Inputs (Function Code 04)
-  async readInputRegisters(startAddr: number, quantity: number): Promise<number[]> {
-    const result = await this.client.readInputRegisters(startAddr, quantity);
-    return result.data;
-  }
-
-  // Holding Registers (Function Code 03, 06, 16)
-  async readHoldingRegisters(startAddr: number, quantity: number): Promise<number[]> {
-    const result = await this.client.readHoldingRegisters(startAddr, quantity);
-    return result.data;
-  }
-
-  async writeSingleRegister(addr: number, value: number): Promise<void> {
-    await this.client.writeRegister(addr, value);
-  }
-
-  async writeMultipleRegisters(startAddr: number, values: number[]): Promise<void> {
-    await this.client.writeRegisters(startAddr, values);
-  }
-}
-```
-
-#### Modbus Integration Tests
-```typescript
-// tests/modbus/digital-io.test.ts
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { TestModbusClient } from './client';
-import { spawn, ChildProcess } from 'child_process';
-
-describe('Digital I/O Modbus Communication', () => {
-  let serverProcess: ChildProcess;
-  let client: TestModbusClient;
-
-  beforeAll(async () => {
-    // Start simulator server
-    serverProcess = spawn('pnpm', ['--filter', '@wago/server', 'start'], {
-      stdio: 'pipe',
-      env: { ...process.env, RACK_CONFIG: './fixtures/test-rack.json' },
-    });
-
-    // Wait for server to be ready
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    client = new TestModbusClient();
-    await client.connect();
-  });
-
-  afterAll(async () => {
-    await client.disconnect();
-    serverProcess.kill();
-  });
-
-  beforeEach(async () => {
-    // Reset all I/O to default state via REST API
-    await fetch('http://localhost:3000/api/simulation/reset', { method: 'POST' });
-  });
-
-  describe('750-1405 Digital Input Module', () => {
-    test('should read all inputs as OFF initially', async () => {
-      const inputs = await client.readDiscreteInputs(0, 16);
-      expect(inputs).toHaveLength(16);
-      expect(inputs.every(v => v === false)).toBe(true);
-    });
-
-    test('should reflect simulated input changes', async () => {
-      // Set input 0 via REST API
-      await fetch('http://localhost:3000/api/io/module-0/0', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: true }),
-      });
-
-      const inputs = await client.readDiscreteInputs(0, 16);
-      expect(inputs[0]).toBe(true);
-      expect(inputs.slice(1).every(v => v === false)).toBe(true);
-    });
-
-    test('should handle reading subset of inputs', async () => {
-      const inputs = await client.readDiscreteInputs(8, 4);
-      expect(inputs).toHaveLength(4);
-    });
-  });
-
-  describe('750-1504 Digital Output Module', () => {
-    test('should write and read back single coil', async () => {
-      await client.writeSingleCoil(16, true); // First output after 16 inputs
-
-      const outputs = await client.readCoils(16, 16);
-      expect(outputs[0]).toBe(true);
-    });
-
-    test('should write multiple coils', async () => {
-      const pattern = [true, false, true, false, true, true, false, false];
-      await client.writeMultipleCoils(16, pattern);
-
-      const outputs = await client.readCoils(16, 8);
-      expect(outputs).toEqual(pattern);
-    });
-
-    test('should clear outputs on communication timeout', async () => {
-      await client.writeSingleCoil(16, true);
-
-      // Simulate timeout by disconnecting
-      await client.disconnect();
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Reconnect and check outputs are cleared
-      await client.connect();
-      const outputs = await client.readCoils(16, 16);
-      expect(outputs.every(v => v === false)).toBe(true);
-    });
-  });
-});
-
-// tests/modbus/analog-io.test.ts
-describe('Analog I/O Modbus Communication', () => {
-  let client: TestModbusClient;
-
-  // ... setup ...
-
-  describe('750-455 Analog Input Module (4-20mA)', () => {
-    test('should read zero-scale value (4mA)', async () => {
-      // Set channel 0 to 4mA via API
-      await fetch('http://localhost:3000/api/io/module-2/0', {
-        method: 'PUT',
-        body: JSON.stringify({ value: 4.0 }),
-      });
-
-      const registers = await client.readInputRegisters(32, 1);
-      expect(registers[0]).toBe(0x0000);
-    });
-
-    test('should read full-scale value (20mA)', async () => {
-      await fetch('http://localhost:3000/api/io/module-2/0', {
-        method: 'PUT',
-        body: JSON.stringify({ value: 20.0 }),
-      });
-
-      const registers = await client.readInputRegisters(32, 1);
-      expect(registers[0]).toBe(0x7FFF);
-    });
-
-    test('should read mid-scale value (12mA)', async () => {
-      await fetch('http://localhost:3000/api/io/module-2/0', {
-        method: 'PUT',
-        body: JSON.stringify({ value: 12.0 }),
-      });
-
-      const registers = await client.readInputRegisters(32, 1);
-      // 12mA is 50% of 4-20mA range = 0x3FFF
-      expect(registers[0]).toBeCloseTo(0x3FFF, -2);
-    });
-
-    test('should read all four channels', async () => {
-      const values = [4.0, 8.0, 12.0, 20.0];
-      for (let ch = 0; ch < 4; ch++) {
-        await fetch(`http://localhost:3000/api/io/module-2/${ch}`, {
-          method: 'PUT',
-          body: JSON.stringify({ value: values[ch] }),
-        });
-      }
-
-      const registers = await client.readInputRegisters(32, 4);
-      expect(registers).toHaveLength(4);
-      expect(registers[0]).toBe(0x0000);      // 4mA
-      expect(registers[1]).toBeCloseTo(0x1FFF, -2); // 8mA
-      expect(registers[2]).toBeCloseTo(0x3FFF, -2); // 12mA
-      expect(registers[3]).toBe(0x7FFF);      // 20mA
-    });
-  });
-
-  describe('750-461 RTD Input Module (Pt100)', () => {
-    test('should read temperature in WAGO format', async () => {
-      // Set temperature to 25.0°C
-      await fetch('http://localhost:3000/api/io/module-3/0', {
-        method: 'PUT',
-        body: JSON.stringify({ value: 25.0 }),
-      });
-
-      const registers = await client.readInputRegisters(36, 3);
-      // WAGO format: raw = (temp + 200) * 10 = 2250
-      expect(registers[0]).toBe(2250);
-    });
-
-    test('should handle negative temperatures', async () => {
-      await fetch('http://localhost:3000/api/io/module-3/0', {
-        method: 'PUT',
-        body: JSON.stringify({ value: -50.0 }),
-      });
-
-      const registers = await client.readInputRegisters(36, 3);
-      // raw = (-50 + 200) * 10 = 1500
-      expect(registers[0]).toBe(1500);
-    });
-
-    test('should include status byte', async () => {
-      // Normal status = 0
-      const registers = await client.readInputRegisters(36, 3);
-      expect(registers[2] & 0xFF).toBe(0); // Status byte
-    });
-  });
-});
-```
+**Remaining Work**
+- Add automated regression scripts (DI/DO/AI/RTD + watchdog).
+- Wire Modbus regression checks into CI.
 
 ### 4.3 Unit Tests
-```typescript
-// tests/unit/modules/DigitalInputModule.test.ts
-import { describe, test, expect } from 'vitest';
-import { DigitalInputModule } from '@wago/server/modules/DigitalInputModule';
+**Goal**: Add unit coverage for shared TypeScript utilities and Rust process-image logic.
 
-describe('DigitalInputModule', () => {
-  test('should initialize with all inputs OFF', () => {
-    const module = new DigitalInputModule(0);
-    const state = module.getState();
-    expect(state.values.every(v => v === false)).toBe(true);
-  });
+**Current Approach**
+- Favor Playwright E2E for UI flow coverage.
+- Use targeted Rust unit tests for packing/unpacking and watchdog logic.
 
-  test('should pack inputs into correct byte format', () => {
-    const module = new DigitalInputModule(0);
-
-    // Set channels 0, 2, 8
-    module.setChannelValue(0, true);
-    module.setChannelValue(2, true);
-    module.setChannelValue(8, true);
-
-    const data = module.readInputs();
-    expect(data[0]).toBe(0b00000101); // Bits 0 and 2
-    expect(data[1]).toBe(0b00000001); // Bit 8 (first bit of second byte)
-  });
-
-  test('should emit change events', () => {
-    const module = new DigitalInputModule(0);
-    const changes: any[] = [];
-
-    module.on('change', (e) => changes.push(e));
-    module.setChannelValue(5, true);
-
-    expect(changes).toHaveLength(1);
-    expect(changes[0]).toEqual({ channel: 5, value: true });
-  });
-});
-
-// tests/unit/modules/AnalogInputModule.test.ts
-describe('AnalogInputModule', () => {
-  test('should convert 4mA to 0x0000', () => {
-    const module = new AnalogInputModule(0);
-    module.setCurrent(0, 4.0);
-
-    const data = module.readInputs();
-    const value = data[0] | (data[1] << 8);
-    expect(value).toBe(0x0000);
-  });
-
-  test('should convert 20mA to 0x7FFF', () => {
-    const module = new AnalogInputModule(0);
-    module.setCurrent(0, 20.0);
-
-    const data = module.readInputs();
-    const value = data[0] | (data[1] << 8);
-    expect(value).toBe(0x7FFF);
-  });
-
-  test('should clamp out-of-range values', () => {
-    const module = new AnalogInputModule(0);
-
-    module.setCurrent(0, -5.0);
-    expect(module.getChannelValue(0)).toBe(0);
-
-    module.setCurrent(0, 30.0);
-    expect(module.getChannelValue(0)).toBe(24);
-  });
-});
-```
+**Remaining Work**
+- Add Rust unit tests in `apps/web/src-tauri/src`.
+- Add shared TS tests for formatting and helpers in `packages/shared`.
 
 ---
 
 ## Phase 5: Polish & Integration (Week 9-10)
+
+**Status (2026-01-25):** Keyboard shortcuts exist for core actions; native file open is implemented. Settings, scenarios, and system tooling are still placeholders.
+
+**Remaining Work**
+- Implement save/save-as/export flows for rack configs (YAML).
+- Implement Settings dialog and persist user preferences.
+- Add user-facing toasts/errors for Modbus and config failures.
+- Decide on scenario system (defer or implement minimal loader).
 
 ### 5.1 Keyboard Shortcuts
 ```typescript
@@ -1783,6 +1080,7 @@ const shortcuts: Shortcut[] = [
 ```
 
 ### 5.2 Scenario System (Basic)
+**Status (2026-01-25):** Deferred to post-MVP unless a minimal loader is required for testing.
 ```typescript
 // Scenario file format (JSON)
 interface Scenario {
@@ -1868,6 +1166,13 @@ const messages = {
 
 ## Phase 6: Documentation & Release (Week 11)
 
+**Status (2026-01-25):** README and Modbus map documentation are present.
+
+**Remaining Work**
+- Add desktop/Tauri usage docs and build steps.
+- Document Rust architecture (process image, watchdog, module mapping).
+- Finalize release checklist for desktop packaging/signing.
+
 ### 6.1 User Documentation
 - Quick Start Guide
 - Module Reference (data formats, addressing)
@@ -1899,8 +1204,8 @@ const messages = {
 
 | Risk | Mitigation |
 |------|------------|
-| Modbus timing issues | Use established modbus-serial library; add extensive protocol tests |
-| WebSocket reliability | Implement reconnection logic; queue updates during disconnect |
+| Modbus timing issues | Use tokio-modbus + regression scripts; validate against `docs/MODBUS_MAP.md` |
+| UI/backend sync | Poll or emit Tauri events with bounded refresh intervals |
 | Performance with many channels | Use virtualization for large racks; throttle UI updates |
 | Cross-browser compatibility | Test early with Playwright; use well-supported APIs |
 | WAGO data format accuracy | Reference official WAGO manuals; verify with real hardware if available |
@@ -1914,7 +1219,7 @@ const messages = {
    - [ ] Modbus TCP server responds correctly to all function codes
    - [ ] Manual override works for all I/O types
    - [ ] Real-time UI updates within 100ms
-   - [ ] Basic scenario loading and execution
+   - [ ] Scenario system deferred or minimal loader documented
 
 2. **Quality Requirements**
    - [ ] 90%+ test coverage for module logic

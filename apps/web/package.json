@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts,tsx",
     "test": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test -c ../../tests/e2e/playwright.config.ts",
     "clean": "rimraf dist",
     "tauri": "tauri"
   },

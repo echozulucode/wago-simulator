@@ -8,7 +8,7 @@ A high-fidelity simulator for WAGO 750 series I/O systems, designed for testing 
 - **Real-time I/O Visualization**: LED indicators and value displays for all channels
 - **Modbus TCP Server**: Full protocol support on port 502 (configurable)
 - **Manual Override**: Interactive controls for simulating input values
-- **WebSocket Updates**: Real-time UI updates for I/O state changes
+- **Tauri Desktop Shell**: Native file dialogs and local simulator runtime
 
 ## Supported Modules (MVP)
 
@@ -34,13 +34,15 @@ pnpm install
 # Build shared package
 pnpm --filter @wago/shared build
 
-# Start development servers (frontend + backend)
+# Start web dev server (uses Tauri mocks)
 pnpm dev
+
+# Start desktop app (Modbus server runs here)
+pnpm --filter @wago/web tauri dev
 ```
 
 The application will be available at:
 - **Web UI**: http://localhost:5173
-- **API**: http://localhost:3000/api
 - **Modbus TCP**: localhost:502
 
 ## Project Structure
@@ -48,13 +50,11 @@ The application will be available at:
 ```
 wago-simulator/
 ├── apps/
-│   ├── web/          # React frontend (Vite + Tailwind)
-│   └── server/       # Node.js backend (Express + Modbus)
+│   └── web/          # React frontend + Tauri shell (Rust backend in src-tauri/)
 ├── packages/
 │   └── shared/       # Shared types and constants
 ├── tests/
-│   ├── e2e/          # Playwright tests
-│   └── modbus/       # Modbus protocol tests
+│   └── e2e/          # Playwright tests
 └── docs/             # Documentation
 ```
 
@@ -66,40 +66,8 @@ wago-simulator/
 pnpm --filter @wago/web dev      # Start dev server
 pnpm --filter @wago/web build    # Production build
 pnpm --filter @wago/web test:e2e # Run Playwright tests
+pnpm --filter @wago/web tauri dev # Run desktop app (Modbus server)
 ```
-
-### Backend (apps/server)
-
-```bash
-pnpm --filter @wago/server dev   # Start with hot reload
-pnpm --filter @wago/server build # Production build
-pnpm --filter @wago/server test  # Run unit tests
-```
-
-## API Endpoints
-
-### Rack Management
-- `GET /api/rack` - Get current rack configuration
-- `POST /api/rack` - Create new rack
-- `DELETE /api/rack` - Clear rack
-
-### Module Management
-- `GET /api/modules/catalog` - Get available module types
-- `GET /api/modules` - List modules in rack
-- `POST /api/modules` - Add module to rack
-- `DELETE /api/modules/:id` - Remove module
-
-### I/O State
-- `GET /api/io` - Get all I/O states
-- `GET /api/io/:moduleId` - Get module I/O state
-- `PUT /api/io/:moduleId/:channel` - Set channel value
-
-### Simulation Control
-- `GET /api/simulation/status` - Get simulation status
-- `POST /api/simulation/start` - Start simulation
-- `POST /api/simulation/pause` - Pause simulation
-- `POST /api/simulation/stop` - Stop simulation
-- `POST /api/simulation/reset` - Reset all I/O
 
 ## Keyboard Shortcuts
 
@@ -118,7 +86,7 @@ pnpm --filter @wago/server test  # Run unit tests
 
 ## Testing with Modbus Clients
 
-Connect any Modbus TCP client to `localhost:502` to interact with the simulated I/O:
+Run the desktop app (`pnpm --filter @wago/web tauri dev`) and connect any Modbus TCP client to `localhost:502` to interact with the simulated I/O:
 
 ```python
 # Example using pymodbus

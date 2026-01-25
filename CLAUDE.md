@@ -54,7 +54,6 @@ pnpm typecheck
 ### Monorepo Structure
 - `apps/web/` - React frontend with Tauri desktop wrapper
 - `apps/web/src-tauri/` - Rust backend (the simulation engine)
-- `apps/server/` - Node.js server (legacy, being replaced by Tauri)
 - `packages/shared/` - Shared TypeScript types and constants
 
 ### Core Data Flow
