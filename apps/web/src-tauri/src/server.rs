@@ -19,6 +19,7 @@ impl Service for SimulatorService {
 
     fn call(&self, req: Self::Request) -> Self::Future {
         let mut sim = self.simulator.lock().unwrap();
+        sim.touch_watchdog();
         
         let res = match req {
             Request::ReadCoils(addr, cnt) => {
@@ -45,21 +46,36 @@ impl Service for SimulatorService {
                 }
                 Ok(Response::ReadDiscreteInputs(subset))
             }
-            Request::ReadHoldingRegisters(_addr, cnt) => {
-                let subset = vec![0u16; cnt as usize];
-                Ok(Response::ReadHoldingRegisters(subset))
+            Request::ReadHoldingRegisters(addr, cnt) => {
+                // If checking watchdog config
+                if addr == 0x1000 {
+                    let val = sim.watchdog_timeout as u16;
+                    let mut res = vec![val];
+                    if cnt > 1 {
+                        res.resize(cnt as usize, 0);
+                    }
+                    Ok(Response::ReadHoldingRegisters(res))
+                } else {
+                    let subset = vec![0u16; cnt as usize];
+                    Ok(Response::ReadHoldingRegisters(subset))
+                }
             }
             Request::ReadInputRegisters(addr, cnt) => {
-                let registers = sim.read_input_registers();
-                let mut subset = Vec::new();
-                if (addr as usize) < registers.len() {
-                    let end = std::cmp::min(registers.len(), (addr + cnt) as usize);
-                    subset.extend_from_slice(&registers[addr as usize..end]);
+                // Check metadata area first
+                if let Some(special) = sim.read_special_input_registers(addr, cnt) {
+                    Ok(Response::ReadInputRegisters(special))
+                } else {
+                    let registers = sim.read_input_registers();
+                    let mut subset = Vec::new();
+                    if (addr as usize) < registers.len() {
+                        let end = std::cmp::min(registers.len(), (addr + cnt) as usize);
+                        subset.extend_from_slice(&registers[addr as usize..end]);
+                    }
+                    if subset.len() < cnt as usize {
+                        subset.resize(cnt as usize, 0);
+                    }
+                    Ok(Response::ReadInputRegisters(subset))
                 }
-                if subset.len() < cnt as usize {
-                    subset.resize(cnt as usize, 0);
-                }
-                Ok(Response::ReadInputRegisters(subset))
             }
             Request::WriteSingleCoil(addr, val) => {
                 sim.write_coils(addr, &[val]);
@@ -69,10 +85,12 @@ impl Service for SimulatorService {
                 sim.write_coils(addr, &vals);
                 Ok(Response::WriteMultipleCoils(addr, vals.len() as u16))
             }
-            Request::WriteSingleRegister(_addr, val) => {
-                Ok(Response::WriteSingleRegister(_addr, val))
+            Request::WriteSingleRegister(addr, val) => {
+                sim.write_holding_registers(addr, &[val]);
+                Ok(Response::WriteSingleRegister(addr, val))
             }
             Request::WriteMultipleRegisters(addr, vals) => {
+                sim.write_holding_registers(addr, &vals);
                 Ok(Response::WriteMultipleRegisters(addr, vals.len() as u16))
             }
             _ => {
@@ -88,17 +106,18 @@ pub async fn run_server(simulator: Arc<Mutex<Simulator>>, port: u16) -> Result<(
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr).await?;
     let service = SimulatorService { simulator };
+    let server = tokio_modbus::server::tcp::Server::new(listener);
     
-    loop {
-        let (stream, _) = listener.accept().await?;
+    let on_connected = Box::new(move |stream, _addr| {
         let service = service.clone();
-        tokio::spawn(async move {
-            // Trying attach
-            // if let Err(e) = tokio_modbus::server::tcp::attach(stream, service).await {
-            //    eprintln!("Modbus connection error: {}", e);
-            // }
-            // Placeholder to ensure build passes if attach missing
-            println!("Connection accepted but server logic pending compilation fix.");
-        });
-    }
+        async move { Ok(Some((service, stream))) }
+    });
+
+    let on_process_error = |err| {
+        eprintln!("Modbus server error: {:?}", err);
+    };
+
+    server.serve(&on_connected, on_process_error).await?;
+    
+    Ok(())
 }

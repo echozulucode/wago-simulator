@@ -127,6 +127,19 @@ pub fn run() {
             .build(),
         )?;
       }
+
+      // Start simulation loop (Watchdog)
+      let app_state = app.state::<AppState>();
+      let sim = app_state.0.clone();
+      tauri::async_runtime::spawn(async move {
+          loop {
+              tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+              if let Ok(mut s) = sim.lock() {
+                  s.check_watchdog();
+              }
+          }
+      });
+
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
