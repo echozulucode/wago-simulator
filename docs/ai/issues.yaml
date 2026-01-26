@@ -48,3 +48,64 @@ issues:
     history:
       - timestamp: 2026-01-25T12:00:00Z
         note: "Issue created during UI testing."
+
+  - id: AI-ISSUE-2026012503
+    title: "Status bar shows disconnected and zero clients while Modbus loop is active"
+    category: Bug
+    severity: Low
+    priority: 3
+    confidence: Medium
+    scope: Local
+    observed: |
+      The status bar shows "Disconnected" and 0 clients even while the Modbus
+      script loop is actively connected and polling the server.
+    expected: |
+      The status bar should show "Connected" and the active Modbus client count
+      when a Modbus TCP client is connected and issuing requests.
+    trace_link: "apps/web/src/components/layout/StatusBar.tsx"
+    workaround: "None"
+    status: Open
+    next_action: "Wire backend connection/client updates to connectionStore and status bar."
+    history:
+      - timestamp: 2026-01-25T23:00:00Z
+        note: "Issue logged from user report during Modbus script loop."
+
+  - id: AI-ISSUE-2026012504
+    title: "Close Rack menu action does not clear rack"
+    category: Bug
+    severity: Low
+    priority: 3
+    confidence: Medium
+    scope: Local
+    observed: |
+      Selecting File > Close Rack does not change the UI or clear the current
+      rack configuration.
+    expected: |
+      Close Rack should clear the current rack configuration and return the UI
+      to the empty state.
+    trace_link: "apps/web/src/components/layout/MenuBar.tsx"
+    workaround: "Reload the app to reset state."
+    status: Open
+    next_action: "Implement clearRack action in rack store and backend."
+    history:
+      - timestamp: 2026-01-25T23:00:00Z
+        note: "Issue logged from user report."
+
+  - id: AI-ISSUE-2026012505
+    title: "File menu missing Exit item"
+    category: Omission
+    severity: Low
+    priority: 3
+    confidence: Medium
+    scope: Local
+    observed: |
+      The File menu does not include an Exit item.
+    expected: |
+      File menu should provide an Exit option to close the app.
+    trace_link: "apps/web/src/components/layout/MenuBar.tsx"
+    workaround: "Close the window manually."
+    status: Open
+    next_action: "Add File > Exit menu item and wire to app close behavior."
+    history:
+      - timestamp: 2026-01-25T23:00:00Z
+        note: "Issue logged from user report."

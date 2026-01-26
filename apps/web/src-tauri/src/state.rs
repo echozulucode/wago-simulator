@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use crate::models::{RackConfig, SimulationState, ModuleState};
+use crate::models::{ChannelValue, ModuleState, RackConfig, SimulationState};
 use crate::modules::{Module, create_module};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -110,6 +110,145 @@ impl Simulator {
             }
         }
     }
+
+    fn append_aligned(bytes: &mut Vec<u8>, data: &[u8], align: usize) {
+        bytes.extend_from_slice(data);
+        if align > 1 {
+            let rem = data.len() % align;
+            if rem != 0 {
+                bytes.extend(std::iter::repeat(0).take(align - rem));
+            }
+        }
+    }
+
+    fn build_input_image_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        let align = 2;
+
+        for module in &self.modules {
+            if Self::is_analog_input(module.get_config().module_number.as_str()) {
+                let data = module.read_inputs();
+                Self::append_aligned(&mut bytes, &data, align);
+            }
+        }
+
+        for module in &self.modules {
+            if Self::is_digital_input(module.get_config().module_number.as_str()) {
+                let data = module.read_inputs();
+                Self::append_aligned(&mut bytes, &data, align);
+            }
+        }
+
+        bytes
+    }
+
+    fn output_module_slices(&self) -> (Vec<(usize, usize, usize)>, usize) {
+        let mut slices = Vec::new();
+        let mut offset = 0usize;
+        let align = 2;
+
+        let mut add_module = |index: usize, len: usize| {
+            if len == 0 {
+                return;
+            }
+            slices.push((index, offset, len));
+            offset += len;
+            if align > 1 {
+                let rem = len % align;
+                if rem != 0 {
+                    offset += align - rem;
+                }
+            }
+        };
+
+        for (index, module) in self.modules.iter().enumerate() {
+            if Self::is_analog_output(module.get_config().module_number.as_str()) {
+                add_module(index, module.get_output_image_size());
+            }
+        }
+
+        for (index, module) in self.modules.iter().enumerate() {
+            if Self::is_digital_output(module.get_config().module_number.as_str()) {
+                add_module(index, module.get_output_image_size());
+            }
+        }
+
+        (slices, offset)
+    }
+
+    fn output_image_bytes_from_registers(&self, total_len: usize) -> Vec<u8> {
+        let total_words = total_len / 2;
+        let mut bytes = Vec::with_capacity(total_len);
+        for i in 0..total_words {
+            let val = self.holding_registers.get(i).copied().unwrap_or(0);
+            bytes.push((val & 0xFF) as u8);
+            bytes.push((val >> 8) as u8);
+        }
+        bytes
+    }
+
+    fn write_output_registers_from_bytes(&mut self, bytes: &[u8]) {
+        for (i, chunk) in bytes.chunks(2).enumerate() {
+            if i >= self.holding_registers.len() {
+                break;
+            }
+            let low = chunk[0] as u16;
+            let high = if chunk.len() > 1 { chunk[1] as u16 } else { 0 };
+            self.holding_registers[i] = low | (high << 8);
+        }
+    }
+
+    fn pack_digital_output_bytes(module: &dyn Module, len: usize) -> Vec<u8> {
+        let mut bytes = vec![0u8; len];
+        let state = module.get_state();
+        for channel in state.channels {
+            let bit_index = channel.channel as usize;
+            let byte_idx = bit_index / 8;
+            let bit_idx = bit_index % 8;
+            if byte_idx >= len {
+                continue;
+            }
+            let is_on = match channel.value {
+                ChannelValue::Bool(val) => val,
+                ChannelValue::Number(val) => val > 0.5,
+            };
+            if is_on {
+                bytes[byte_idx] |= 1 << bit_idx;
+            }
+        }
+        bytes
+    }
+
+    fn apply_output_registers_to_modules(&mut self) {
+        let (slices, total_len) = self.output_module_slices();
+        if total_len == 0 {
+            return;
+        }
+        let bytes = self.output_image_bytes_from_registers(total_len);
+        for (index, offset, len) in slices {
+            if let Some(slice) = bytes.get(offset..offset + len) {
+                self.modules[index].write_outputs(slice);
+            }
+        }
+    }
+
+    fn sync_output_registers_from_digital_outputs(&mut self) {
+        let (slices, total_len) = self.output_module_slices();
+        if total_len == 0 {
+            return;
+        }
+        let mut bytes = self.output_image_bytes_from_registers(total_len);
+        for (index, offset, len) in slices {
+            if !Self::is_digital_output(self.modules[index].get_config().module_number.as_str()) {
+                continue;
+            }
+            let packed = Self::pack_digital_output_bytes(self.modules[index].as_ref(), len);
+            if let Some(target) = bytes.get_mut(offset..offset + len) {
+                target.copy_from_slice(&packed);
+            }
+        }
+        self.write_output_registers_from_bytes(&bytes);
+    }
     
     // Modbus Helpers
     
@@ -164,19 +303,12 @@ impl Simulator {
     }
     
     pub fn read_input_registers(&self) -> Vec<u16> {
-        // Normal I/O area
+        let bytes = self.build_input_image_bytes();
         let mut words = Vec::new();
-        for module in &self.modules {
-            if Self::is_analog_input(module.get_config().module_number.as_str()) {
-                let bytes = module.read_inputs();
-                // Pack bytes into words (Little Endian for WAGO internal sim)
-                // Note: Counter modules return 6 bytes (3 words)
-                for chunk in bytes.chunks(2) {
-                    if chunk.len() == 2 {
-                        let val = (chunk[0] as u16) | ((chunk[1] as u16) << 8);
-                        words.push(val);
-                    }
-                }
+        for chunk in bytes.chunks(2) {
+            if chunk.len() == 2 {
+                let val = (chunk[0] as u16) | ((chunk[1] as u16) << 8);
+                words.push(val);
             }
         }
         words
@@ -264,6 +396,7 @@ impl Simulator {
                 current_addr = module_end;
             }
         }
+        self.sync_output_registers_from_digital_outputs();
     }
     
     pub fn write_holding_registers(&mut self, addr: u16, values: &[u16]) {
@@ -331,6 +464,8 @@ impl Simulator {
                 current_ao_addr = module_end;
             }
         }
+
+        self.apply_output_registers_to_modules();
     }
 }
 
