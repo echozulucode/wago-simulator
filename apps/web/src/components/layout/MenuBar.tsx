@@ -146,9 +146,13 @@ export function MenuBar() {
   } = useUIStore();
 
   const {
+    config,
     createRack,
     loadConfig,
     clearRack,
+    saveConfig,
+    saveConfigAs,
+    exportConfig,
     simulationState,
     startSimulation,
     stopSimulation,
@@ -182,11 +186,12 @@ export function MenuBar() {
             }))
         },
         { id: 'div1', label: '', divider: true },
-        { id: 'save', label: 'Save', shortcut: 'Ctrl+S', action: () => {}, disabled: true },
-        { id: 'saveas', label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: () => {}, disabled: true },
-        { id: 'export', label: 'Export Config...', action: () => {}, disabled: true },
+        { id: 'save', label: 'Save', shortcut: 'Ctrl+S', action: saveConfig, disabled: !config },
+        { id: 'saveas', label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: saveConfigAs, disabled: !config },
+        { id: 'export', label: 'Export Config...', action: exportConfig, disabled: !config },
         { id: 'div2', label: '', divider: true },
-        { id: 'close', label: 'Close Rack', action: clearRack },
+        { id: 'close', label: 'Close Rack', action: clearRack, disabled: !config },
+        { id: 'exit', label: 'Exit', shortcut: 'Alt+F4', action: tauriApi.closeApp },
       ],
     },
     {

@@ -33,7 +33,7 @@ function EmptyState() {
 export function WorkArea() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { zoom } = useUIStore();
-  const { config, addModule, getModulesSorted } = useRackStore();
+  const { config, addModule, getModulesSorted, createRack } = useRackStore();
 
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -48,18 +48,26 @@ export function WorkArea() {
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
 
-      const moduleNumber = e.dataTransfer.getData('text/plain');
-      if (moduleNumber && config) {
-        const modules = getModulesSorted();
-        const nextSlot = modules.length > 0 ? Math.max(...modules.map(m => m.slotPosition)) + 1 : 0;
-        addModule(moduleNumber, nextSlot);
+      const moduleNumber =
+        e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
+      if (!moduleNumber) {
+        return;
       }
+
+      if (!config) {
+        await createRack('New Rack');
+      }
+
+      const modules = getModulesSorted();
+      const nextSlot =
+        modules.length > 0 ? Math.max(...modules.map(m => m.slotPosition)) + 1 : 0;
+      addModule(moduleNumber, nextSlot);
     },
-    [config, addModule, getModulesSorted]
+    [config, addModule, getModulesSorted, createRack]
   );
 
   return (

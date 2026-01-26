@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,4 +66,33 @@ pub enum SimulationState {
     Stopped,
     Running,
     Paused,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModbusClientInfo {
+    pub id: String,
+    pub address: String,
+    pub connected_at: u64,
+    pub last_activity: u64,
+    pub request_count: u64,
+}
+
+impl ModbusClientInfo {
+    pub fn new(id: String, addr: SocketAddr, now: u64) -> Self {
+        Self {
+            id,
+            address: addr.to_string(),
+            connected_at: now,
+            last_activity: now,
+            request_count: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionState {
+    pub modbus_clients: Vec<ModbusClientInfo>,
+    pub last_activity: u64,
 }

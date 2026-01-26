@@ -4,13 +4,23 @@
 
 This document outlines a phased approach to building a Minimum Viable Product (MVP) for the WAGO 750 I/O System Simulator. The MVP focuses on a **single rack configuration** with a limited set of I/O modules, a **polished, production-ready UI shell**, and comprehensive testing infrastructure using Playwright and Modbus clients.
 
-## Current Status Snapshot (2026-01-25)
+## Current Status Snapshot (2026-01-26)
 
 - The primary simulator backend is now **Rust inside Tauri** (`apps/web/src-tauri`), including Modbus TCP and WAGO-specific behaviors.
 - The **UI shell and rack visualization** are in place; E2E tests are green and manual I/O controls work.
+- Process image output handling now mirrors the register-based layout (analog outputs first, digital outputs packed), and the Modbus client loop updates UI outputs correctly.
 - **Native file open** is implemented via Tauri dialog; save/export flows are still stubbed.
 - **Drag-and-drop module placement remains blocked** (known issue).
 - Scenario system and settings dialog are **not implemented yet**.
+- Status bar connection/client counts are not wired; File > Close Rack and File > Exit are missing (logged in `docs/ai/issues.yaml`).
+
+## Suggested Next Steps
+
+1. Wire backend connection/client updates into the UI status bar.
+2. Implement `clearRack` end-to-end (MenuBar action + store + backend).
+3. Add File > Exit menu item (Tauri close behavior).
+4. Fix drag-and-drop module placement in the rack builder.
+5. Implement save/save-as/export flows for rack configs.
 
 ---
 
@@ -432,6 +442,7 @@ module.exports = {
 - Fix drag-and-drop add/reorder behavior in the rack builder.
 - Enable save/save-as/export in MenuBar/Toolbar (open is already wired to Tauri).
 - Tighten selection/state syncing between rack view, explorer, and properties panel.
+- Wire status bar connection/client info and add File > Close Rack / File > Exit menu actions.
 
 ### 3.1 Rack Visualization Component
 **Goal**: Create photorealistic rack visualization with interactive modules.
@@ -1043,6 +1054,7 @@ test.describe('Manual Override', () => {
 - Implement Settings dialog and persist user preferences.
 - Add user-facing toasts/errors for Modbus and config failures.
 - Decide on scenario system (defer or implement minimal loader).
+- Add connection/client status updates to the status bar and clear-rack/exit actions.
 
 ### 5.1 Keyboard Shortcuts
 ```typescript

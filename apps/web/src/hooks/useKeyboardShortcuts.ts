@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useRackStore } from '@/stores/rackStore';
+import { tauriApi } from '@/api/tauri';
 
 interface Shortcut {
   key: string;
@@ -21,13 +22,31 @@ export function useKeyboardShortcuts() {
     clearSelection,
   } = useUIStore();
 
-  const { createRack, setSimulationState } = useRackStore();
+  const {
+    createRack,
+    loadConfig,
+    saveConfig,
+    saveConfigAs,
+    startSimulation,
+    stopSimulation,
+  } = useRackStore();
 
   const shortcuts: Shortcut[] = [
     // File operations
     { key: 'n', ctrl: true, action: () => createRack('New Rack'), description: 'New Rack' },
-    // { key: 'o', ctrl: true, action: () => {}, description: 'Open' },
-    // { key: 's', ctrl: true, action: () => {}, description: 'Save' },
+    {
+      key: 'o',
+      ctrl: true,
+      action: async () => {
+        const path = await tauriApi.openConfigDialog();
+        if (path) {
+          loadConfig(path);
+        }
+      },
+      description: 'Open',
+    },
+    { key: 's', ctrl: true, action: saveConfig, description: 'Save' },
+    { key: 's', ctrl: true, shift: true, action: saveConfigAs, description: 'Save As' },
 
     // View operations
     { key: 'e', ctrl: true, action: toggleLeftPanel, description: 'Toggle Explorer' },
@@ -38,14 +57,9 @@ export function useKeyboardShortcuts() {
     { key: '0', ctrl: true, action: resetZoom, description: 'Reset Zoom' },
 
     // Simulation
-    { key: 'F5', action: () => setSimulationState('running'), description: 'Start Simulation' },
-    { key: 'F6', action: () => setSimulationState('paused'), description: 'Pause Simulation' },
-    {
-      key: 'F5',
-      shift: true,
-      action: () => setSimulationState('stopped'),
-      description: 'Stop Simulation',
-    },
+    { key: 'F5', action: startSimulation, description: 'Start Simulation' },
+    { key: 'F6', action: () => {}, description: 'Pause Simulation' },
+    { key: 'F5', shift: true, action: stopSimulation, description: 'Stop Simulation' },
 
     // Selection
     { key: 'Escape', action: clearSelection, description: 'Clear Selection' },

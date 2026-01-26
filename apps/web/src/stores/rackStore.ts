@@ -4,13 +4,14 @@ import type {
   ModuleInstance,
   ModuleState,
   SimulationState,
-  ConnectionState,
 } from '@wago/shared';
 import { tauriApi } from '../api/tauri';
+import { useConnectionStore } from './connectionStore';
 
 interface RackStore {
   // Configuration (persisted in backend)
   config: RackConfig | null;
+  configPath: string | null;
 
   // Runtime state (synced from backend)
   moduleStates: Map<string, ModuleState>;
@@ -21,6 +22,10 @@ interface RackStore {
   init: () => void;
   createRack: (name: string, description?: string) => Promise<void>;
   loadConfig: (path: string) => Promise<void>;
+  clearRack: () => Promise<void>;
+  saveConfig: () => Promise<void>;
+  saveConfigAs: () => Promise<void>;
+  exportConfig: () => Promise<void>;
   addModule: (moduleNumber: string, slotPosition: number) => Promise<void>;
   removeModule: (moduleId: string) => Promise<void>;
   
@@ -37,6 +42,7 @@ interface RackStore {
 
 export const useRackStore = create<RackStore>((set, get) => ({
   config: null,
+  configPath: null,
   moduleStates: new Map(),
   simulationState: 'stopped',
   connectionState: {
@@ -50,12 +56,18 @@ export const useRackStore = create<RackStore>((set, get) => ({
     console.log("Initializing RackStore sync...");
     setInterval(async () => {
       try {
-        const { config, moduleStates, simulationState } = await tauriApi.getRackState();
+        const { config, moduleStates, simulationState, connectionState } =
+          await tauriApi.getRackState();
         
         // Convert array to map
         const stateMap = new Map<string, ModuleState>();
         moduleStates.forEach(s => stateMap.set(s.id, s));
-        
+        const hasClients = connectionState.modbusClients.length > 0;
+        useConnectionStore.setState({
+          wsConnected: hasClients,
+          modbusClients: connectionState.modbusClients,
+          lastHeartbeat: connectionState.lastActivity,
+        });
         set({ 
           config, 
           moduleStates: stateMap,
@@ -69,10 +81,43 @@ export const useRackStore = create<RackStore>((set, get) => ({
 
   createRack: async (name, description) => {
     await tauriApi.createRack(name, description);
+    set({ configPath: null });
   },
 
   loadConfig: async (path) => {
     await tauriApi.loadConfig(path);
+    set({ configPath: path });
+  },
+
+  clearRack: async () => {
+    await tauriApi.clearRack();
+    set({ configPath: null });
+  },
+
+  saveConfig: async () => {
+    const { configPath } = get();
+    if (configPath) {
+      await tauriApi.saveConfig(configPath);
+      return;
+    }
+    await get().saveConfigAs();
+  },
+
+  saveConfigAs: async () => {
+    const { config } = get();
+    const defaultName = config ? `${config.name}.yaml` : undefined;
+    const path = await tauriApi.saveConfigDialog(defaultName);
+    if (!path) return;
+    await tauriApi.saveConfig(path);
+    set({ configPath: path });
+  },
+
+  exportConfig: async () => {
+    const { config } = get();
+    const defaultName = config ? `${config.name}-export.yaml` : undefined;
+    const path = await tauriApi.saveConfigDialog(defaultName);
+    if (!path) return;
+    await tauriApi.saveConfig(path);
   },
 
   addModule: async (moduleNumber, slotPosition) => {

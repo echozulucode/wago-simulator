@@ -4,7 +4,7 @@ pub mod server;
 pub mod state;
 pub mod sim_config;
 
-use models::{ModuleInstance, RackConfig, SimulationState, ModuleState};
+use models::{ConnectionState, ModuleInstance, RackConfig, SimulationState, ModuleState};
 use state::{AppState, Simulator};
 use std::sync::{Arc, Mutex};
 use tauri::{State, Manager};
@@ -12,10 +12,11 @@ use tauri::{State, Manager};
 // --- Commands ---
 
 #[tauri::command]
-fn get_rack_state(state: State<AppState>) -> Result<(Option<RackConfig>, Vec<ModuleState>, SimulationState), String> {
+fn get_rack_state(state: State<AppState>) -> Result<(Option<RackConfig>, Vec<ModuleState>, SimulationState, ConnectionState), String> {
     let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
     let module_states = sim.get_all_module_states();
-    Ok((sim.config.clone(), module_states, sim.simulation_state.clone()))
+    let connection_state = sim.get_connection_state();
+    Ok((sim.config.clone(), module_states, sim.simulation_state.clone(), connection_state))
 }
 
 #[tauri::command]
@@ -112,9 +113,76 @@ fn remove_module(state: State<AppState>, module_id: String) -> Result<(), String
 }
 
 #[tauri::command]
+fn clear_rack(state: State<AppState>) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    sim.clear_rack();
+    Ok(())
+}
+
+#[tauri::command]
 fn set_channel_value(state: State<AppState>, module_id: String, channel: u16, value: f64) -> Result<(), String> {
     let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
     sim.set_channel_value(&module_id, channel, value);
+    Ok(())
+}
+
+fn build_sim_config_from_rack(config: &RackConfig) -> sim_config::SimConfigRoot {
+    sim_config::SimConfigRoot {
+        version: 2,
+        sim: sim_config::SimSettings {
+            name: config.name.clone(),
+            seed: None,
+            tick_ms: 10,
+        },
+        transport: sim_config::TransportConfig {
+            kind: "modbus_tcp".to_string(),
+            listen: sim_config::ListenConfig {
+                host: config.coupler.ip_address.clone(),
+                port: config.coupler.modbus_port,
+            },
+            unit_id: config.coupler.unit_id,
+        },
+        process_image: sim_config::ProcessImageConfig {
+            layout: "wago_750_default".to_string(),
+            word_endian: "big".to_string(),
+            align_modules_to: 2,
+        },
+        modbus_map: sim_config::ModbusMapConfig {
+            inputs: sim_config::ModbusArea {
+                kind: "input_registers".to_string(),
+                base: 0,
+            },
+            outputs: sim_config::ModbusArea {
+                kind: "holding_registers".to_string(),
+                base: 0,
+            },
+        },
+        racks: vec![sim_config::RackDefinition {
+            id: config.id.clone(),
+            name: config.name.clone(),
+            modules: config
+                .modules
+                .iter()
+                .map(|module| sim_config::ModuleDefinition {
+                    id: module.id.clone(),
+                    model: module.module_number.clone(),
+                    name: module.label.clone().unwrap_or_else(|| module.module_number.clone()),
+                    channels: Vec::new(),
+                    module_config: None,
+                })
+                .collect(),
+        }],
+        scenarios: None,
+    }
+}
+
+#[tauri::command]
+fn save_config(state: State<AppState>, path: String) -> Result<(), String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let config = sim.config.clone().ok_or("No rack configured".to_string())?;
+    let root = build_sim_config_from_rack(&config);
+    let yaml = serde_yaml::to_string(&root).map_err(|e| e.to_string())?;
+    std::fs::write(&path, yaml).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -180,7 +248,9 @@ pub fn run() {
         load_config,
         add_module,
         remove_module,
+        clear_rack,
         set_channel_value,
+        save_config,
         start_simulation,
         stop_simulation
     ])

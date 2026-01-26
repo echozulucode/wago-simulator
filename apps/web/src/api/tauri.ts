@@ -1,7 +1,21 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { open as tauriOpen } from '@tauri-apps/plugin-dialog';
+import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { RackConfig, ModuleInstance, ModuleState, SimulationState } from '@wago/shared';
 import { mockInvoke } from '../mocks/tauriMock';
+
+export interface ModbusClientInfo {
+  id: string;
+  address: string;
+  connectedAt: number;
+  lastActivity: number;
+  requestCount: number;
+}
+
+export interface ConnectionState {
+  modbusClients: ModbusClientInfo[];
+  lastActivity: number;
+}
 
 // Detect if running in Tauri
 const isTauri = !!(window as any).__TAURI_INTERNALS__;
@@ -9,11 +23,21 @@ const isTauri = !!(window as any).__TAURI_INTERNALS__;
 const invoke = isTauri ? tauriInvoke : mockInvoke;
 
 export const tauriApi = {
-  getRackState: async (): Promise<{ config: RackConfig | null; moduleStates: ModuleState[]; simulationState: SimulationState }> => {
+  getRackState: async (): Promise<{
+    config: RackConfig | null;
+    moduleStates: ModuleState[];
+    simulationState: SimulationState;
+    connectionState: ConnectionState;
+  }> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await invoke('get_rack_state');
-    const [config, moduleStates, simulationState] = result as [RackConfig | null, ModuleState[], SimulationState];
-    return { config, moduleStates, simulationState };
+    const [config, moduleStates, simulationState, connectionState] = result as [
+      RackConfig | null,
+      ModuleState[],
+      SimulationState,
+      ConnectionState,
+    ];
+    return { config, moduleStates, simulationState, connectionState };
   },
 
   createRack: async (name: string, description?: string): Promise<RackConfig> => {
@@ -26,6 +50,14 @@ export const tauriApi = {
 
   loadConfig: async (configPath: string): Promise<RackConfig> => {
     return await invoke('load_config', { configPath });
+  },
+
+  clearRack: async (): Promise<void> => {
+    return await invoke('clear_rack');
+  },
+
+  saveConfig: async (path: string): Promise<void> => {
+    return await invoke('save_config', { path });
   },
 
   addModule: async (moduleNumber: string, slotPosition: number): Promise<ModuleInstance> => {
@@ -49,6 +81,19 @@ export const tauriApi = {
     return await invoke('stop_simulation');
   },
 
+  saveConfigDialog: async (defaultPath?: string): Promise<string | null> => {
+    if (!isTauri) {
+      console.warn('Save dialog not available outside Tauri');
+      return null;
+    }
+    const selected = await tauriSave({
+      defaultPath,
+      filters: [{ name: 'YAML Config', extensions: ['yaml', 'yml'] }],
+      title: 'Save Rack Configuration',
+    });
+    return selected as string | null;
+  },
+
   openConfigDialog: async (): Promise<string | null> => {
     if (!isTauri) {
       console.warn('File dialog not available outside Tauri');
@@ -60,5 +105,13 @@ export const tauriApi = {
       title: 'Open Rack Configuration',
     });
     return selected as string | null;
+  },
+
+  closeApp: async (): Promise<void> => {
+    if (!isTauri) {
+      window.close();
+      return;
+    }
+    await getCurrentWindow().close();
   },
 };

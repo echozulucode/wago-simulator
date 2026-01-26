@@ -17,14 +17,30 @@ import { Divider } from '@/components/common';
 import { cn } from '@/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 import { useRackStore } from '@/stores/rackStore';
+import { tauriApi } from '@/api/tauri';
 
 export function Toolbar() {
   const { zoom, zoomIn, zoomOut, resetZoom } = useUIStore();
-  const { config, simulationState, startSimulation, stopSimulation, resetAllIO, createRack } = useRackStore();
+  const {
+    config,
+    simulationState,
+    startSimulation,
+    stopSimulation,
+    resetAllIO,
+    createRack,
+    loadConfig,
+    saveConfig,
+  } = useRackStore();
 
   const handleStart = () => startSimulation();
   const handlePause = () => {}; // Pause not implemented in MVP backend yet
   const handleStop = () => stopSimulation();
+  const handleOpen = async () => {
+    const path = await tauriApi.openConfigDialog();
+    if (path) {
+      loadConfig(path);
+    }
+  };
 
   return (
     <div
@@ -41,10 +57,15 @@ export function Toolbar() {
           />
         </Tooltip>
         <Tooltip content="Open (Ctrl+O)">
-          <IconButton icon={<FolderOpen />} disabled data-testid="toolbar-open" />
+          <IconButton icon={<FolderOpen />} onClick={handleOpen} data-testid="toolbar-open" />
         </Tooltip>
         <Tooltip content="Save (Ctrl+S)">
-          <IconButton icon={<Save />} disabled={!config} data-testid="toolbar-save" />
+          <IconButton
+            icon={<Save />}
+            onClick={saveConfig}
+            disabled={!config}
+            data-testid="toolbar-save"
+          />
         </Tooltip>
       </div>
 

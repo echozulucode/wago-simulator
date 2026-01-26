@@ -7,6 +7,7 @@ let mockConfig: RackConfig | null = null;
 let mockModuleStates: ModuleState[] = [];
 let mockSimulationState = 'stopped';
 let moduleIdCounter = 0;
+let mockModbusClients: { id: string; address: string; connectedAt: number; lastActivity: number; requestCount: number }[] = [];
 
 const createDefaultModuleState = (module: ModuleInstance): ModuleState => {
   const definition = MODULE_CATALOG[module.moduleNumber];
@@ -33,7 +34,12 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
 
   switch (cmd) {
     case 'get_rack_state':
-      return [mockConfig, mockModuleStates, mockSimulationState];
+      return [
+        mockConfig,
+        mockModuleStates,
+        mockSimulationState,
+        { modbusClients: mockModbusClients, lastActivity: Date.now() },
+      ];
 
     case 'create_rack':
       mockConfig = {
@@ -52,6 +58,11 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
       };
       mockModuleStates = [];
       return mockConfig;
+
+    case 'clear_rack':
+      mockConfig = null;
+      mockModuleStates = [];
+      return;
 
     case 'list_configs':
       return [];
@@ -95,6 +106,9 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
 
     case 'stop_simulation':
       mockSimulationState = 'stopped';
+      return;
+
+    case 'save_config':
       return;
 
     default:

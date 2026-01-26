@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
-use crate::models::{ChannelValue, ModuleState, RackConfig, SimulationState};
+use crate::models::{ChannelValue, ConnectionState, ModbusClientInfo, ModuleState, RackConfig, SimulationState};
 use crate::modules::{Module, create_module};
+use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Simulator {
@@ -10,6 +12,7 @@ pub struct Simulator {
     pub last_modbus_activity: u64, // Timestamp in ms
     pub watchdog_timeout: u64, // ms, default 0 (disabled)
     pub holding_registers: Vec<u16>, // General purpose storage for simulation
+    pub modbus_clients: HashMap<String, ModbusClientInfo>,
 }
 
 impl Simulator {
@@ -21,6 +24,7 @@ impl Simulator {
             last_modbus_activity: 0,
             watchdog_timeout: 0,
             holding_registers: vec![0; 1024], // Initialize 1024 registers
+            modbus_clients: HashMap::new(),
         }
     }
     
@@ -37,6 +41,13 @@ impl Simulator {
             }
         }
         self.config = Some(config);
+    }
+
+    pub fn clear_rack(&mut self) {
+        self.config = None;
+        self.modules.clear();
+        self.simulation_state = SimulationState::Stopped;
+        self.holding_registers.fill(0);
     }
 
     pub fn load_from_yaml_string(&mut self, yaml_content: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -93,6 +104,37 @@ impl Simulator {
 
     pub fn touch_watchdog(&mut self) {
         self.last_modbus_activity = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+    }
+
+    pub fn register_modbus_client(&mut self, addr: SocketAddr) -> String {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        let id = format!("client-{}-{}", addr, now);
+        let info = ModbusClientInfo::new(id.clone(), addr, now);
+        self.modbus_clients.insert(id.clone(), info);
+        self.last_modbus_activity = now;
+        id
+    }
+
+    pub fn note_client_activity(&mut self, client_id: &str) {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
+        if let Some(client) = self.modbus_clients.get_mut(client_id) {
+            client.last_activity = now;
+            client.request_count += 1;
+        }
+        self.last_modbus_activity = now;
+    }
+
+    pub fn remove_modbus_client(&mut self, client_id: &str) {
+        self.modbus_clients.remove(client_id);
+    }
+
+    pub fn get_connection_state(&self) -> ConnectionState {
+        let mut clients: Vec<ModbusClientInfo> = self.modbus_clients.values().cloned().collect();
+        clients.sort_by(|a, b| a.id.cmp(&b.id));
+        ConnectionState {
+            modbus_clients: clients,
+            last_activity: self.last_modbus_activity,
+        }
     }
 
     pub fn check_watchdog(&mut self) {
