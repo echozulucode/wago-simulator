@@ -155,12 +155,9 @@ interface DraggableModuleProps {
 
 function DraggableModule({ moduleNumber, name, type: _type, color, onAdd }: DraggableModuleProps) {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    console.log('[DraggableModule] onDragStart:', moduleNumber);
-    // Set the data in multiple formats for compatibility
     e.dataTransfer.setData('text/plain', moduleNumber);
     e.dataTransfer.setData('text', moduleNumber);
     e.dataTransfer.effectAllowed = 'copy';
-    // Set drag image for visual feedback
     const target = e.currentTarget;
     e.dataTransfer.setDragImage(target, target.offsetWidth / 2, target.offsetHeight / 2);
   };
@@ -169,19 +166,7 @@ function DraggableModule({ moduleNumber, name, type: _type, color, onAdd }: Drag
     <div
       className="flex items-center gap-2 px-2 py-1.5 hover:bg-panel-hover rounded-sm cursor-grab active:cursor-grabbing group"
       draggable={true}
-      onMouseDown={(e) => {
-        console.log('[DraggableModule] onMouseDown:', moduleNumber, 'button:', e.button);
-      }}
       onDragStart={handleDragStart}
-      onDrag={(e) => {
-        // Fires continuously while dragging
-        if (e.clientX !== 0 || e.clientY !== 0) {
-          console.log('[DraggableModule] onDrag:', moduleNumber, e.clientX, e.clientY);
-        }
-      }}
-      onDragEnd={(e) => {
-        console.log('[DraggableModule] onDragEnd:', moduleNumber, 'dropEffect:', e.dataTransfer.dropEffect);
-      }}
       data-module={moduleNumber}
     >
       <GripVertical className="w-3 h-3 text-panel-text-muted opacity-0 group-hover:opacity-100 pointer-events-none" />
@@ -261,7 +246,7 @@ export function LeftPanel() {
 
   return (
     <div
-      className="relative flex flex-col bg-panel-bg border-r border-panel-border"
+      className="relative flex flex-col bg-panel-bg border-r border-panel-border overflow-hidden"
       style={{ width: leftPanelWidth }}
       data-testid="left-panel"
     >
@@ -272,7 +257,7 @@ export function LeftPanel() {
         collapsed={!rackExpanded}
         onToggleCollapse={() => setRackExpanded(!rackExpanded)}
         noPadding
-        className="border-b border-panel-border"
+        className="border-b border-panel-border flex-shrink-0"
       >
         <RackExplorer />
       </Panel>
@@ -284,7 +269,7 @@ export function LeftPanel() {
         collapsed={!catalogExpanded}
         onToggleCollapse={() => setCatalogExpanded(!catalogExpanded)}
         noPadding
-        className="flex-1"
+        className="flex-1 min-h-0"
       >
         <ModuleCatalog />
       </Panel>

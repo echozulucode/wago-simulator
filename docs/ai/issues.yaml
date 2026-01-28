@@ -34,6 +34,13 @@ issues:
           2. Improved drag-leave handling in WorkArea.tsx using dragCounter ref to prevent
              premature isDragOver reset when dragging over child elements.
           Also fixed loadConfig() to update local state immediately for consistency.
+      - timestamp: 2026-01-27T14:00:00Z
+        note: |
+          Additional WebView2 compatibility fixes:
+          - Disabled Tauri's file drop handling (dragDropEnabled: false in tauri.conf.json)
+          - Added global CSS for [draggable="true"] with -webkit-user-drag: element
+          - Added pointer-events: none to child elements in DraggableModule
+          - Set data in both text/plain and text formats for compatibility
 
   - id: AI-ISSUE-2026012502
     title: "Module list lacks scrollbar when content overflows"
@@ -52,11 +59,18 @@ issues:
       to all available module types.
     trace_link: "apps/web/src/components/layout/LeftPanel.tsx"
     workaround: "Resize the window to be taller, or collapse other sections."
-    status: Open
-    next_action: "Add overflow-y-auto to the module list container in LeftPanel.tsx"
+    status: Resolved
+    next_action: null
     history:
       - timestamp: 2026-01-25T12:00:00Z
         note: "Issue created during UI testing."
+      - timestamp: 2026-01-27T14:00:00Z
+        note: |
+          Fixed by adding proper flex constraints to LeftPanel:
+          - Added overflow-hidden to panel container
+          - Added flex-shrink-0 to Rack Explorer panel
+          - Added min-h-0 to Module Catalog panel for proper flex shrinking
+          - Added overflow-hidden to Panel component for consistent behavior
 
   - id: AI-ISSUE-2026012503
     title: "Status bar shows disconnected and zero clients while Modbus loop is active"

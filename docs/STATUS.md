@@ -6,15 +6,41 @@ Last Updated: 2026-01-27
 
 *   **Active Sprint/Phase:** Phase 5: Polish & Integration
 *   **Current Objective:** Complete UI shell functionality and prepare for MVP release.
-*   **Current Blockers:** None critical. Drag-and-drop is deprioritized (workaround available).
+*   **Current Blockers:** None.
 *   **Active Working Files:**
-    *   `apps/web/src/components/layout/MenuBar.tsx`
-    *   `apps/web/src/components/layout/StatusBar.tsx`
-    *   `apps/web/src/stores/rackStore.ts`
+    *   `apps/web/src/components/layout/LeftPanel.tsx`
+    *   `apps/web/src/components/common/Panel.tsx`
 
 ## II. Execution Log (The "Ledger")
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
+
+### [2026-01-27] - Module Catalog Scrollbar Fix (AI-ISSUE-2026012502)
+
+*   **Action:** Fixed scrollbar visibility for Module Catalog when content overflows.
+*   **Detail:**
+    *   Added `overflow-hidden` to LeftPanel container for proper flex constraints.
+    *   Added `flex-shrink-0` to Rack Explorer panel to prevent unwanted shrinking.
+    *   Added `min-h-0` to Module Catalog panel for proper flex shrinking.
+    *   Added `overflow-hidden` to Panel component for consistent behavior.
+*   **Outcome:** Success. Module Catalog now shows scrollbar when content overflows.
+*   **Artifacts:**
+    *   `apps/web/src/components/layout/LeftPanel.tsx`
+    *   `apps/web/src/components/common/Panel.tsx`
+
+### [2026-01-27] - Drag-and-Drop WebView2 Compatibility (AI-ISSUE-2026012501)
+
+*   **Action:** Fixed drag-and-drop in Tauri WebView2 environment.
+*   **Detail:**
+    *   Disabled Tauri's file drop handling (`dragDropEnabled: false` in tauri.conf.json).
+    *   Added global CSS for `[draggable="true"]` with `-webkit-user-drag: element`.
+    *   Added `pointer-events: none` to child elements in DraggableModule.
+    *   Set data in both `text/plain` and `text` formats for compatibility.
+*   **Outcome:** Success. Drag-and-drop now works correctly in Tauri desktop app.
+*   **Artifacts:**
+    *   `apps/web/src-tauri/tauri.conf.json`
+    *   `apps/web/src/styles/globals.css`
+    *   `apps/web/src/components/layout/LeftPanel.tsx`
 
 ### [2026-01-27] - Drag-and-Drop Module Fix (AI-ISSUE-2026012501)
 

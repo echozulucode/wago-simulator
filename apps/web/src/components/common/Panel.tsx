@@ -39,7 +39,7 @@ export function Panel({
   };
 
   return (
-    <div className={cn('flex flex-col bg-panel-bg', className)}>
+    <div className={cn('flex flex-col bg-panel-bg overflow-hidden', className)}>
       {title && (
         <div
           className={cn(

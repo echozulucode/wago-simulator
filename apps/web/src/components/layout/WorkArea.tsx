@@ -41,7 +41,6 @@ export function WorkArea() {
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     dragCounter.current++;
-    console.log('[WorkArea] onDragEnter, counter:', dragCounter.current);
     setIsDragOver(true);
   }, []);
 
@@ -54,7 +53,6 @@ export function WorkArea() {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     dragCounter.current--;
-    console.log('[WorkArea] onDragLeave, counter:', dragCounter.current);
     if (dragCounter.current === 0) {
       setIsDragOver(false);
     }
@@ -66,15 +64,10 @@ export function WorkArea() {
       dragCounter.current = 0;
       setIsDragOver(false);
 
-      console.log('[WorkArea] onDrop event');
-      console.log('[WorkArea] dataTransfer types:', e.dataTransfer.types);
-
       const moduleNumber =
         e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
-      console.log('[WorkArea] moduleNumber from dataTransfer:', moduleNumber);
 
       if (!moduleNumber) {
-        console.warn('Drop: No module number in dataTransfer');
         return;
       }
 
