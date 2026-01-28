@@ -13,11 +13,28 @@ pub enum ScenarioAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScenarioStep {
+    // Trigger (Absolute time from start)
     #[serde(alias = "time_offset_ms")]
-    pub time_offset_ms: u64,
+    pub time_offset_ms: Option<u64>,
+
+    // Reactive Trigger (Wait for channel value)
+    #[serde(alias = "trigger_module")]
+    pub trigger_module: Option<usize>,
+    #[serde(alias = "trigger_channel")]
+    pub trigger_channel: Option<u16>,
+    #[serde(alias = "trigger_value")]
+    pub trigger_value: Option<f64>,
+
+    // Delay AFTER trigger is met before executing action
+    #[serde(alias = "delay_ms")]
+    pub delay_ms: Option<u64>,
+
+    // Target for action
     #[serde(alias = "module_position")]
     pub module_position: usize,
     pub channel: u16,
+    
+    // Action
     pub action: ScenarioAction,
     pub value: f64,
     #[serde(alias = "duration_ms")]
@@ -62,6 +79,8 @@ pub struct ScenarioEngine {
     pub loaded_scenario: Option<Scenario>,
     active_ramps: Vec<ActiveRamp>,
     active_pulses: Vec<ActivePulse>,
+    // Track if current step is waiting for its post-trigger delay
+    step_delay_start: Option<Instant>,
 }
 
 impl ScenarioEngine {
@@ -73,6 +92,7 @@ impl ScenarioEngine {
             loaded_scenario: None,
             active_ramps: Vec::new(),
             active_pulses: Vec::new(),
+            step_delay_start: None,
         }
     }
 
@@ -88,6 +108,7 @@ impl ScenarioEngine {
             self.current_step_index = 0;
             self.active_ramps.clear();
             self.active_pulses.clear();
+            self.step_delay_start = None;
         }
     }
 
@@ -97,6 +118,7 @@ impl ScenarioEngine {
         self.current_step_index = 0;
         self.active_ramps.clear();
         self.active_pulses.clear();
+        self.step_delay_start = None;
     }
 
     pub fn tick(&mut self, simulator: &mut Simulator) {
@@ -117,8 +139,39 @@ impl ScenarioEngine {
             let step = if let Some(scenario) = &self.loaded_scenario {
                 if self.current_step_index < scenario.steps.len() {
                     let step = &scenario.steps[self.current_step_index];
-                    if step.time_offset_ms <= elapsed_ms {
-                        Some(step.clone())
+                    
+                    // Check if trigger is met
+                    let trigger_met = if let (Some(m), Some(c), Some(v)) = (step.trigger_module, step.trigger_channel, step.trigger_value) {
+                        // Value-based trigger
+                        let current = self.get_simulator_value(simulator, m, c);
+                        (current - v).abs() < 0.001
+                    } else if let Some(offset) = step.time_offset_ms {
+                        // Absolute time trigger
+                        offset <= elapsed_ms
+                    } else {
+                        // No trigger (sequential)
+                        true
+                    };
+
+                    if trigger_met {
+                        // Handle post-trigger delay
+                        if let Some(delay) = step.delay_ms {
+                            match self.step_delay_start {
+                                Some(t) => {
+                                    if t.elapsed() >= Duration::from_millis(delay) {
+                                        Some(step.clone())
+                                    } else {
+                                        None
+                                    }
+                                }
+                                None => {
+                                    self.step_delay_start = Some(Instant::now());
+                                    None
+                                }
+                            }
+                        } else {
+                            Some(step.clone())
+                        }
                     } else {
                         None
                     }
@@ -132,6 +185,7 @@ impl ScenarioEngine {
             if let Some(s) = step {
                 self.execute_step(&s, simulator);
                 self.current_step_index += 1;
+                self.step_delay_start = None; // Reset for next step
             } else {
                 break;
             }
