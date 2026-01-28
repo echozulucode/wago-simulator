@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::scenario::Scenario;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SimConfigRoot {
@@ -78,10 +79,4 @@ pub struct SignalDefinition {
     pub name: String,
     #[serde(rename = "type")]
     pub signal_type: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Scenario {
-    pub id: String,
-    pub name: String,
 }

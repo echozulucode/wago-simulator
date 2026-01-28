@@ -114,6 +114,22 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
     case 'save_config':
       return;
 
+    case 'list_scenarios':
+      return ['Contactor Simulation', 'Pump Failure', 'Network Stress Test'];
+
+    case 'load_scenario':
+      return args.name;
+
+    case 'control_scenario':
+      return;
+
+    case 'get_scenario_status':
+      return {
+        active: false,
+        name: null,
+        elapsedMs: 0,
+      };
+
     default:
       console.warn(`[MockTauri] Unknown command: ${cmd}`);
       return null;

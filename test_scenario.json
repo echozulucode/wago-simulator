@@ -1,0 +1,38 @@
+{
+  "name": "I/O Test Sequence",
+  "description": "A simple test for the scenario engine.",
+  "version": "1.0",
+  "loopEnabled": true,
+  "steps": [
+    {
+      "timeOffsetMs": 0,
+      "modulePosition": 0,
+      "channel": 0,
+      "action": "set",
+      "value": 1.0
+    },
+    {
+      "timeOffsetMs": 1000,
+      "modulePosition": 0,
+      "channel": 0,
+      "action": "set",
+      "value": 0.0
+    },
+    {
+      "timeOffsetMs": 2000,
+      "modulePosition": 1,
+      "channel": 0,
+      "action": "ramp",
+      "value": 20.0,
+      "durationMs": 5000
+    },
+    {
+      "timeOffsetMs": 8000,
+      "modulePosition": 0,
+      "channel": 1,
+      "action": "pulse",
+      "value": 1.0,
+      "durationMs": 1000
+    }
+  ]
+}

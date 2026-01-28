@@ -53,3 +53,58 @@ racks:
         model: '750-563'
         name: 'AO_VALVES'
         channels: []
+
+scenarios:
+  - name: 'Contactor Simulation'
+    description: 'Simulates a contactor by toggling an output and feedback inputs.'
+    version: '1.0'
+    loop_enabled: true
+    steps:
+      # Step 1: Turn ON Output 0 (Coil)
+      - time_offset_ms: 0
+        module_position: 1
+        channel: 0
+        action: 'set'
+        value: 1.0
+
+      # Step 2: After 100ms, Turn ON Input 0 (N.O. Contact)
+      - time_offset_ms: 100
+        module_position: 0
+        channel: 0
+        action: 'set'
+        value: 1.0
+
+      # Step 3: At same time, Turn OFF Input 1 (N.C. Contact)
+      - time_offset_ms: 100
+        module_position: 0
+        channel: 1
+        action: 'set'
+        value: 0.0
+
+      # Step 4: After 2 seconds, Turn OFF Output 0
+      - time_offset_ms: 2000
+        module_position: 1
+        channel: 0
+        action: 'set'
+        value: 0.0
+
+      # Step 5: After 100ms, Turn OFF Input 0 (N.O. Contact)
+      - time_offset_ms: 2100
+        module_position: 0
+        channel: 0
+        action: 'set'
+        value: 0.0
+        
+      # Step 6: At same time, Turn ON Input 1 (N.C. Contact)
+      - time_offset_ms: 2100
+        module_position: 0
+        channel: 1
+        action: 'set'
+        value: 1.0
+      
+      # Step 7: Wait until 4s to loop
+      - time_offset_ms: 4000
+        module_position: 1
+        channel: 0
+        action: 'set'
+        value: 0.0

@@ -68,6 +68,26 @@ export const tauriApi = {
     return await invoke('stop_simulation');
   },
 
+  listScenarios: async (): Promise<string[]> => {
+    return await invoke('list_scenarios');
+  },
+
+  loadScenario: async (name: string): Promise<string> => {
+    return await invoke('load_scenario', { name });
+  },
+
+  controlScenario: async (command: 'play' | 'stop'): Promise<void> => {
+    return await invoke('control_scenario', { command });
+  },
+
+  getScenarioStatus: async (): Promise<{
+    active: boolean;
+    name: string | null;
+    elapsedMs: number;
+  }> => {
+    return await invoke('get_scenario_status');
+  },
+
   resetAllIO: async (): Promise<void> => {
     return await invoke('reset_all_io');
   },

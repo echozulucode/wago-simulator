@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { cn } from '@/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 import { useRackStore } from '@/stores/rackStore';
+import { useScenarioStore } from '@/stores/scenarioStore';
 import { tauriApi } from '@/api/tauri';
 
 interface MenuItem {
@@ -160,6 +161,14 @@ export function MenuBar() {
     resetAllIO,
   } = useRackStore();
 
+  const {
+    loadScenario,
+    playScenario,
+    stopScenario,
+    active: scenarioActive,
+    name: scenarioName,
+  } = useScenarioStore();
+
   useEffect(() => {
       // Load config files
       tauriApi.listConfigs().then(setConfigFiles).catch(console.error);
@@ -276,7 +285,9 @@ export function MenuBar() {
           disabled: simulationState === 'stopped',
         },
         { id: 'div1', label: '', divider: true },
-        { id: 'scenario', label: 'Load Scenario...', action: () => {}, disabled: true },
+        { id: 'scenario_load', label: 'Load Scenario...', action: loadScenario },
+        { id: 'scenario_start', label: 'Start Scenario', action: playScenario, disabled: !scenarioName || scenarioActive },
+        { id: 'scenario_stop', label: 'Stop Scenario', action: stopScenario, disabled: !scenarioActive },
         { id: 'scenarioedit', label: 'Scenario Editor...', action: () => {}, disabled: true },
         { id: 'div2', label: '', divider: true },
         { id: 'resetio', label: 'Reset All I/O', action: resetAllIO },

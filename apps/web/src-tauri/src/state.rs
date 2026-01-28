@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use crate::models::{ChannelValue, ConnectionState, ModbusClientInfo, ModuleState, RackConfig, SimulationState};
 use crate::modules::{Module, create_module};
+use crate::scenario::{Scenario, ScenarioEngine};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -13,6 +14,8 @@ pub struct Simulator {
     pub watchdog_timeout: u64, // ms, default 0 (disabled)
     pub holding_registers: Vec<u16>, // General purpose storage for simulation
     pub modbus_clients: HashMap<String, ModbusClientInfo>,
+    pub scenario_engine: ScenarioEngine,
+    pub available_scenarios: Vec<Scenario>,
 }
 
 impl Simulator {
@@ -25,6 +28,8 @@ impl Simulator {
             watchdog_timeout: 0,
             holding_registers: vec![0; 1024], // Initialize 1024 registers
             modbus_clients: HashMap::new(),
+            scenario_engine: ScenarioEngine::new(),
+            available_scenarios: Vec::new(),
         }
     }
     
@@ -48,11 +53,20 @@ impl Simulator {
         self.modules.clear();
         self.simulation_state = SimulationState::Stopped;
         self.holding_registers.fill(0);
+        self.scenario_engine.stop();
+        self.available_scenarios.clear();
     }
 
     pub fn load_from_yaml_string(&mut self, yaml_content: &str) -> Result<(), Box<dyn std::error::Error>> {
         let root: crate::sim_config::SimConfigRoot = serde_yaml::from_str(yaml_content)?;
         
+        // Load scenarios if present
+        if let Some(scenarios) = root.scenarios {
+            self.available_scenarios = scenarios;
+        } else {
+            self.available_scenarios.clear();
+        }
+
         // Take the first rack for MVP
         if let Some(rack_def) = root.racks.first() {
             let mut modules = Vec::new();
@@ -86,6 +100,22 @@ impl Simulator {
         Ok(())
     }
     
+    pub fn tick(&mut self) {
+        // Run scenario engine tick
+        // We have to use a trick here because scenario_engine.tick(self) 
+        // would require multiple mutable borrows.
+        // Option 1: Move tick logic to Simulator (boring)
+        // Option 2: Use internal mutability (not great here)
+        // Option 3: Swap out scenario engine (safest for borrow checker)
+        
+        let mut engine = std::mem::replace(&mut self.scenario_engine, ScenarioEngine::new());
+        engine.tick(self);
+        self.scenario_engine = engine;
+
+        // Check watchdog
+        self.check_watchdog();
+    }
+
     pub fn get_module_state(&self, module_id: &str) -> Option<ModuleState> {
         self.modules.iter()
             .find(|m| m.get_id() == module_id)

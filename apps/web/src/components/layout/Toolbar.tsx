@@ -10,6 +10,10 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  PlayCircle,
+  StopCircle,
+  FileJson,
+  ChevronDown,
 } from 'lucide-react';
 import { IconButton } from '@/components/common';
 import { Tooltip } from '@/components/common';
@@ -17,7 +21,9 @@ import { Divider } from '@/components/common';
 import { cn } from '@/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 import { useRackStore } from '@/stores/rackStore';
+import { useScenarioStore } from '@/stores/scenarioStore';
 import { tauriApi } from '@/api/tauri';
+import { Menu } from '@headlessui/react';
 
 export function Toolbar() {
   const { zoom, zoomIn, zoomOut, resetZoom } = useUIStore();
@@ -31,6 +37,16 @@ export function Toolbar() {
     loadConfig,
     saveConfig,
   } = useRackStore();
+
+  const {
+    active: scenarioActive,
+    name: scenarioName,
+    loadScenario,
+    playScenario,
+    stopScenario,
+    elapsedMs,
+    availableScenarios,
+  } = useScenarioStore();
 
   const handleStart = () => startSimulation();
   const handlePause = () => {}; // Pause not implemented in MVP backend yet
@@ -111,6 +127,63 @@ export function Toolbar() {
             data-testid="toolbar-reset"
           />
         </Tooltip>
+      </div>
+
+      <Divider orientation="vertical" className="h-6 mx-1" />
+
+      {/* Scenario controls */}
+      <div className="flex items-center gap-0.5">
+        <Menu as="div" className="relative inline-block text-left">
+          <Menu.Button
+            className="flex items-center gap-1 px-2 py-1 text-xs text-panel-text hover:bg-panel-hover rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={availableScenarios.length === 0}
+          >
+            {scenarioName || 'Select Scenario'}
+            <ChevronDown size={12} />
+          </Menu.Button>
+          <Menu.Items className="absolute right-0 mt-1 w-48 origin-top-right bg-menu-bg border border-menu-border shadow-lg rounded-sm focus:outline-none z-50">
+            {availableScenarios.map((name) => (
+              <Menu.Item key={name}>
+                {({ active }) => (
+                  <button
+                    className={cn(
+                      'block w-full text-left px-4 py-2 text-xs',
+                      active ? 'bg-menu-hover text-white' : 'text-panel-text'
+                    )}
+                    onClick={() => loadScenario(name)}
+                  >
+                    {name}
+                  </button>
+                )}
+              </Menu.Item>
+            ))}
+          </Menu.Items>
+        </Menu>
+
+        <Tooltip content="Start Scenario">
+          <IconButton
+            icon={<PlayCircle size={18} />}
+            onClick={playScenario}
+            disabled={!scenarioName || scenarioActive}
+            className={cn(scenarioActive && 'text-status-success')}
+            data-testid="toolbar-play-scenario"
+          />
+        </Tooltip>
+        <Tooltip content="Stop Scenario">
+          <IconButton
+            icon={<StopCircle size={18} />}
+            onClick={stopScenario}
+            disabled={!scenarioActive}
+            data-testid="toolbar-stop-scenario"
+          />
+        </Tooltip>
+        {scenarioActive && (
+          <div className="flex flex-col ml-1 px-1 border-l border-panel-border leading-none">
+             <span className="text-[10px] font-mono text-status-success">
+                {Math.floor(elapsedMs / 1000)}s
+              </span>
+          </div>
+        )}
       </div>
 
       <Divider orientation="vertical" className="h-6 mx-1" />

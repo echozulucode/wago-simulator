@@ -3,6 +3,7 @@ pub mod modules;
 pub mod server;
 pub mod state;
 pub mod sim_config;
+pub mod scenario;
 
 use models::{ConnectionState, ModuleInstance, RackConfig, SimulationState, ModuleState};
 use state::{AppState, Simulator};
@@ -214,6 +215,59 @@ fn stop_simulation(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
+// --- Scenario Commands ---
+
+#[tauri::command]
+fn list_scenarios(state: State<AppState>) -> Result<Vec<String>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    Ok(sim.available_scenarios.iter().map(|s| s.name.clone()).collect())
+}
+
+#[tauri::command]
+fn load_scenario(state: State<AppState>, name: String) -> Result<String, String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    
+    // Find scenario by name
+    let scenario = sim.available_scenarios.iter()
+        .find(|s| s.name == name)
+        .cloned()
+        .ok_or_else(|| format!("Scenario '{}' not found", name))?;
+        
+    sim.scenario_engine.load_scenario(scenario);
+    Ok(name)
+}
+
+#[tauri::command]
+fn control_scenario(state: State<AppState>, command: String) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    match command.as_str() {
+        "play" => sim.scenario_engine.play(),
+        "stop" => sim.scenario_engine.stop(),
+        _ => return Err(format!("Unknown scenario command: {}", command)),
+    }
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScenarioStatus {
+    active: bool,
+    name: Option<String>,
+    elapsed_ms: u64,
+}
+
+#[tauri::command]
+fn get_scenario_status(state: State<AppState>) -> Result<ScenarioStatus, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let engine = &sim.scenario_engine;
+    
+    Ok(ScenarioStatus {
+        active: engine.running,
+        name: engine.loaded_scenario.as_ref().map(|s| s.name.clone()),
+        elapsed_ms: engine.start_time.map(|t| t.elapsed().as_millis() as u64).unwrap_or(0),
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -234,7 +288,7 @@ pub fn run() {
           loop {
               tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
               if let Ok(mut s) = sim.lock() {
-                  s.check_watchdog();
+                  s.tick();
               }
           }
       });
@@ -252,7 +306,11 @@ pub fn run() {
         set_channel_value,
         save_config,
         start_simulation,
-        stop_simulation
+        stop_simulation,
+        list_scenarios,
+        load_scenario,
+        control_scenario,
+        get_scenario_status
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
