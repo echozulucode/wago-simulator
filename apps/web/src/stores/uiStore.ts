@@ -21,7 +21,11 @@ export interface ViewState {
   animateChanges: boolean;
 }
 
-export interface UIState extends PanelState, SelectionState, ViewState {
+export interface DialogState {
+  settingsDialogOpen: boolean;
+}
+
+export interface UIState extends PanelState, SelectionState, ViewState, DialogState {
   // Panel actions
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
@@ -42,6 +46,10 @@ export interface UIState extends PanelState, SelectionState, ViewState {
   toggleShowChannelNumbers: () => void;
   toggleShowRawValues: () => void;
   toggleAnimateChanges: () => void;
+
+  // Dialog actions
+  openSettingsDialog: () => void;
+  closeSettingsDialog: () => void;
 }
 
 const MIN_PANEL_WIDTH = 180;
@@ -66,6 +74,9 @@ export const useUIStore = create<UIState>((set) => ({
   showChannelNumbers: true,
   showRawValues: false,
   animateChanges: true,
+
+  // Initial dialog state
+  settingsDialogOpen: false,
 
   // Panel actions
   toggleLeftPanel: () =>
@@ -114,4 +125,8 @@ export const useUIStore = create<UIState>((set) => ({
 
   toggleAnimateChanges: () =>
     set((state) => ({ animateChanges: !state.animateChanges })),
+
+  // Dialog actions
+  openSettingsDialog: () => set({ settingsDialogOpen: true }),
+  closeSettingsDialog: () => set({ settingsDialogOpen: false }),
 }));

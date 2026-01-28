@@ -143,6 +143,7 @@ export function MenuBar() {
     zoomIn,
     zoomOut,
     resetZoom,
+    openSettingsDialog,
   } = useUIStore();
 
   const {
@@ -288,7 +289,7 @@ export function MenuBar() {
         { id: 'iowatch', label: 'I/O Watch', action: () => {}, disabled: true },
         { id: 'datalog', label: 'Data Logger', action: () => {}, disabled: true },
         { id: 'div1', label: '', divider: true },
-        { id: 'settings', label: 'Settings...', shortcut: 'Ctrl+,', action: () => {}, disabled: true },
+        { id: 'settings', label: 'Settings...', shortcut: 'Ctrl+,', action: openSettingsDialog },
       ],
     },
     {

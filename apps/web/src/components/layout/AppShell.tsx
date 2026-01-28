@@ -5,9 +5,10 @@ import { LeftPanel } from './LeftPanel';
 import { RightPanel } from './RightPanel';
 import { WorkArea } from './WorkArea';
 import { StatusBar } from './StatusBar';
+import { SettingsDialog } from '@/components/dialogs/SettingsDialog';
 
 export function AppShell() {
-  const { leftPanelOpen, rightPanelOpen, statusBarVisible } = useUIStore();
+  const { leftPanelOpen, rightPanelOpen, statusBarVisible, settingsDialogOpen, closeSettingsDialog } = useUIStore();
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-panel-bg text-panel-text">
@@ -31,6 +32,9 @@ export function AppShell() {
 
       {/* Status Bar */}
       {statusBarVisible && <StatusBar />}
+
+      {/* Dialogs */}
+      <SettingsDialog open={settingsDialogOpen} onClose={closeSettingsDialog} />
     </div>
   );
 }

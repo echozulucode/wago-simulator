@@ -16,6 +16,35 @@ Last Updated: 2026-01-27
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
 
+### [2026-01-27] - Settings Dialog Implementation
+
+*   **Action:** Implemented Settings dialog for application configuration.
+*   **Detail:**
+    *   Created reusable `Dialog` component with keyboard support (Escape to close).
+    *   Created `SettingsDialog` with Display settings (channel numbers, raw values, animations) and Modbus info.
+    *   Added dialog state management to `uiStore` (openSettingsDialog, closeSettingsDialog).
+    *   Wired Tools > Settings menu item to open the dialog.
+    *   Added `scale-in` animation to tailwind config for dialog entrance.
+*   **Outcome:** Success. Settings dialog accessible via Tools > Settings (Ctrl+,).
+*   **Artifacts:**
+    *   `apps/web/src/components/common/Dialog.tsx`
+    *   `apps/web/src/components/dialogs/SettingsDialog.tsx`
+    *   `apps/web/src/stores/uiStore.ts`
+    *   `apps/web/src/components/layout/AppShell.tsx`
+    *   `apps/web/src/components/layout/MenuBar.tsx`
+    *   `apps/web/tailwind.config.js`
+
+### [2026-01-27] - File > Exit Permission Fix
+
+*   **Action:** Added window close permission for File > Exit functionality.
+*   **Detail:**
+    *   Added `core:window:allow-close` to Tauri capabilities.
+    *   Added error handling with fallback to `destroy()` in `closeApp()`.
+*   **Outcome:** File > Exit should now work (requires Tauri restart).
+*   **Artifacts:**
+    *   `apps/web/src-tauri/capabilities/default.json`
+    *   `apps/web/src/api/tauri.ts`
+
 ### [2026-01-27] - MVP Blocker Fixes (AI-ISSUE-2026012503, 04, 05)
 
 *   **Action:** Fixed three MVP blocker issues in the UI shell.

@@ -29,15 +29,15 @@ This document outlines a phased approach to building a Minimum Viable Product (M
 
 ## Suggested Next Steps (Priority Order)
 
-### Immediate (MVP Blockers)
-1. **Wire status bar connection/client updates** - Show live Modbus client count and connection status.
-2. **Implement `clearRack` end-to-end** - MenuBar action + store + backend command.
-3. **Add File > Exit menu item** - Wire to Tauri window close.
+### Immediate (MVP Blockers) - ✅ ALL COMPLETE
+1. ~~**Wire status bar connection/client updates**~~ - Done (AI-ISSUE-2026012503)
+2. ~~**Implement `clearRack` end-to-end**~~ - Done (AI-ISSUE-2026012504)
+3. ~~**Add File > Exit menu item**~~ - Done (AI-ISSUE-2026012505)
 
-### Short-term (MVP Polish)
-4. **Implement save/save-as flows** - Persist rack configs to YAML via Tauri file dialog.
-5. **Add export config flow** - Export current rack to file.
-6. **Implement Settings dialog** - Modbus port, cycle time, display preferences.
+### Short-term (MVP Polish) - ✅ ALL COMPLETE
+4. ~~**Implement save/save-as flows**~~ - Already implemented
+5. ~~**Add export config flow**~~ - Already implemented
+6. ~~**Implement Settings dialog**~~ - Done
 
 ### Optional (Nice-to-have)
 7. Fix drag-and-drop module placement (if time permits).
