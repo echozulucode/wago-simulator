@@ -41,13 +41,23 @@ export interface RackState {
 export type SimulationState = 'stopped' | 'running' | 'paused';
 
 /**
- * Connection state to the backend
+ * Information about a connected Modbus client
+ */
+export interface ModbusClientInfo {
+  id: string;
+  address: string;
+  connectedAt: number;
+  lastActivity: number;
+  requestCount: number;
+}
+
+/**
+ * Connection state from the backend
+ * This represents the actual Modbus TCP connection state
  */
 export interface ConnectionState {
-  status: 'connected' | 'disconnected' | 'connecting' | 'error';
-  modbusClients: number;
-  lastHeartbeat: number;
-  error?: string;
+  modbusClients: ModbusClientInfo[];
+  lastActivity: number;
 }
 
 /**

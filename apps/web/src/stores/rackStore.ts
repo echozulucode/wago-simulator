@@ -48,9 +48,8 @@ export const useRackStore = create<RackStore>((set, get) => ({
   moduleStates: new Map(),
   simulationState: 'stopped',
   connectionState: {
-    status: 'disconnected',
-    modbusClients: 0,
-    lastHeartbeat: 0,
+    modbusClients: [],
+    lastActivity: 0,
   },
 
   init: () => {
@@ -93,7 +92,11 @@ export const useRackStore = create<RackStore>((set, get) => ({
 
   clearRack: async () => {
     await tauriApi.clearRack();
-    set({ configPath: null });
+    set({
+      config: null,
+      configPath: null,
+      moduleStates: new Map(),
+    });
   },
 
   saveConfig: async () => {

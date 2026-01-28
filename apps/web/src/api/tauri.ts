@@ -1,21 +1,8 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { RackConfig, ModuleInstance, ModuleState, SimulationState } from '@wago/shared';
+import type { RackConfig, ModuleInstance, ModuleState, SimulationState, ConnectionState } from '@wago/shared';
 import { mockInvoke } from '../mocks/tauriMock';
-
-export interface ModbusClientInfo {
-  id: string;
-  address: string;
-  connectedAt: number;
-  lastActivity: number;
-  requestCount: number;
-}
-
-export interface ConnectionState {
-  modbusClients: ModbusClientInfo[];
-  lastActivity: number;
-}
 
 // Detect if running in Tauri
 const isTauri = !!(window as any).__TAURI_INTERNALS__;
@@ -116,6 +103,12 @@ export const tauriApi = {
       window.close();
       return;
     }
-    await getCurrentWindow().close();
+    try {
+      await getCurrentWindow().close();
+    } catch (e) {
+      console.error('Failed to close window:', e);
+      // Fallback: try to destroy the window
+      await getCurrentWindow().destroy();
+    }
   },
 };

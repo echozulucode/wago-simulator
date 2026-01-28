@@ -34,13 +34,19 @@ export function StatusBar() {
           <>
             <LEDIndicator state={true} color="green" size="xs" />
             <Wifi className="w-3 h-3 text-status-success" />
-            <span className="text-panel-text">Connected</span>
+            <span className="text-panel-text">Clients Active</span>
+          </>
+        ) : simulationState === 'running' ? (
+          <>
+            <LEDIndicator state={true} color="yellow" size="xs" />
+            <Wifi className="w-3 h-3 text-status-warning" />
+            <span className="text-panel-text-muted">Listening</span>
           </>
         ) : (
           <>
             <LEDIndicator state={false} color="red" size="xs" />
             <WifiOff className="w-3 h-3 text-panel-text-muted" />
-            <span className="text-panel-text-muted">Disconnected</span>
+            <span className="text-panel-text-muted">Server Offline</span>
           </>
         )}
       </div>

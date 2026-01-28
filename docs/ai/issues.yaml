@@ -64,11 +64,18 @@ issues:
       when a Modbus TCP client is connected and issuing requests.
     trace_link: "apps/web/src/components/layout/StatusBar.tsx"
     workaround: "None"
-    status: Open
-    next_action: "Wire backend connection/client updates to connectionStore and status bar."
+    status: Resolved
+    next_action: null
     history:
       - timestamp: 2026-01-25T23:00:00Z
         note: "Issue logged from user report during Modbus script loop."
+      - timestamp: 2026-01-27T10:00:00Z
+        note: |
+          Fixed type mismatch between backend ConnectionState (array of ModbusClientInfo)
+          and frontend types (was expecting a number count). Updated shared types to match
+          backend, fixed connectionStore and tauriApi imports, and enhanced StatusBar to
+          show three states: 'Clients Active' (green), 'Listening' (yellow when server
+          running but no clients), and 'Server Offline' (red when stopped).
 
   - id: AI-ISSUE-2026012504
     title: "Close Rack menu action does not clear rack"
@@ -85,11 +92,16 @@ issues:
       to the empty state.
     trace_link: "apps/web/src/components/layout/MenuBar.tsx"
     workaround: "Reload the app to reset state."
-    status: Open
-    next_action: "Implement clearRack action in rack store and backend."
+    status: Resolved
+    next_action: null
     history:
       - timestamp: 2026-01-25T23:00:00Z
         note: "Issue logged from user report."
+      - timestamp: 2026-01-27T10:30:00Z
+        note: |
+          Fixed by updating rackStore.clearRack() to immediately clear local state
+          (config, moduleStates) in addition to calling backend clear_rack command.
+          Menu was already wired correctly.
 
   - id: AI-ISSUE-2026012505
     title: "File menu missing Exit item"
@@ -104,8 +116,12 @@ issues:
       File menu should provide an Exit option to close the app.
     trace_link: "apps/web/src/components/layout/MenuBar.tsx"
     workaround: "Close the window manually."
-    status: Open
-    next_action: "Add File > Exit menu item and wire to app close behavior."
+    status: Resolved
+    next_action: null
     history:
       - timestamp: 2026-01-25T23:00:00Z
         note: "Issue logged from user report."
+      - timestamp: 2026-01-27T10:30:00Z
+        note: |
+          Verified Exit menu item already exists and is wired to tauriApi.closeApp.
+          The item was present at MenuBar.tsx line 194 with Alt+F4 shortcut.

@@ -1,20 +1,51 @@
 # Project Status: WAGO 750 Simulator
 
-Last Updated: 2026-01-25
+Last Updated: 2026-01-27
 
 ## I. Current Context (The "State")
 
-*   **Active Sprint/Phase:** Phase 3: UI Polish & Documentation
-*   **Current Objective:** File open dialog, Modbus testing tools, documentation.
-*   **Current Blockers:** Drag-and-drop for adding modules still not working.
+*   **Active Sprint/Phase:** Phase 5: Polish & Integration
+*   **Current Objective:** Complete UI shell functionality and prepare for MVP release.
+*   **Current Blockers:** None critical. Drag-and-drop is deprioritized (workaround available).
 *   **Active Working Files:**
     *   `apps/web/src/components/layout/MenuBar.tsx`
-    *   `docs/MODBUS_MAP.md`
-    *   `scripts/modbus_client.py`
+    *   `apps/web/src/components/layout/StatusBar.tsx`
+    *   `apps/web/src/stores/rackStore.ts`
 
 ## II. Execution Log (The "Ledger")
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
+
+### [2026-01-27] - MVP Blocker Fixes (AI-ISSUE-2026012503, 04, 05)
+
+*   **Action:** Fixed three MVP blocker issues in the UI shell.
+*   **Detail:**
+    *   **Status Bar (AI-ISSUE-2026012503):** Fixed type mismatch between backend `ConnectionState` and frontend types. Enhanced StatusBar to show "Clients Active" (green), "Listening" (yellow), or "Server Offline" (red).
+    *   **Close Rack (AI-ISSUE-2026012504):** Fixed `clearRack()` to immediately clear local state (config, moduleStates) in addition to backend call.
+    *   **Exit (AI-ISSUE-2026012505):** Verified File > Exit already exists and is wired to `tauriApi.closeApp` with Alt+F4 shortcut.
+*   **Outcome:** Success. All three immediate MVP blockers resolved.
+*   **Artifacts:**
+    *   `packages/shared/src/types/rack.ts`
+    *   `apps/web/src/stores/connectionStore.ts`
+    *   `apps/web/src/stores/rackStore.ts`
+    *   `apps/web/src/api/tauri.ts`
+    *   `apps/web/src/components/layout/StatusBar.tsx`
+
+### [2026-01-27] - Real-World Testing Validation
+
+*   **Action:** Comprehensive real-world testing of simulator with actual Modbus clients.
+*   **Detail:**
+    *   Validated all module types against external Modbus clients.
+    *   Corrected multiple process data image handling issues.
+    *   Confirmed WAGO-compatible register layout and bit packing.
+    *   All core simulation functionality verified working.
+*   **Outcome:** Success. Simulator is functionally complete for MVP use cases.
+*   **Next Steps:**
+    *   ~~Wire status bar connection/client updates (AI-ISSUE-2026012503)~~ Done
+    *   ~~Implement clearRack end-to-end (AI-ISSUE-2026012504)~~ Done
+    *   ~~Add File > Exit menu item (AI-ISSUE-2026012505)~~ Already implemented
+    *   Implement save/save-as/export flows
+    *   Add Settings dialog
 
 ### [2026-01-25] - Native File Dialog & Modbus Documentation
 

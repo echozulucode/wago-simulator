@@ -1,12 +1,7 @@
 import { create } from 'zustand';
+import type { ModbusClientInfo } from '@wago/shared';
 
-export interface ModbusClientInfo {
-  id: string;
-  address: string;
-  connectedAt: number;
-  lastActivity: number;
-  requestCount: number;
-}
+export type { ModbusClientInfo };
 
 export interface ConnectionStore {
   // WebSocket state
