@@ -36,36 +36,59 @@ export function WorkArea() {
   const { config, addModule, getModulesSorted, createRack } = useRackStore();
 
   const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    dragCounter.current++;
+    console.log('[WorkArea] onDragEnter, counter:', dragCounter.current);
     setIsDragOver(true);
   }, []);
 
-  const handleDragLeave = useCallback(() => {
-    setIsDragOver(false);
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current--;
+    console.log('[WorkArea] onDragLeave, counter:', dragCounter.current);
+    if (dragCounter.current === 0) {
+      setIsDragOver(false);
+    }
   }, []);
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
+      dragCounter.current = 0;
       setIsDragOver(false);
+
+      console.log('[WorkArea] onDrop event');
+      console.log('[WorkArea] dataTransfer types:', e.dataTransfer.types);
 
       const moduleNumber =
         e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
+      console.log('[WorkArea] moduleNumber from dataTransfer:', moduleNumber);
+
       if (!moduleNumber) {
+        console.warn('Drop: No module number in dataTransfer');
         return;
       }
 
+      // Create rack if needed, then add module
       if (!config) {
         await createRack('New Rack');
       }
 
+      // Get fresh module list from store (not from closure)
       const modules = getModulesSorted();
       const nextSlot =
         modules.length > 0 ? Math.max(...modules.map(m => m.slotPosition)) + 1 : 0;
-      addModule(moduleNumber, nextSlot);
+
+      await addModule(moduleNumber, nextSlot);
     },
     [config, addModule, getModulesSorted, createRack]
   );
@@ -77,6 +100,7 @@ export function WorkArea() {
         'flex-1 overflow-auto bg-[#0d0d0d] relative',
         isDragOver && 'ring-2 ring-inset ring-wago-orange/50'
       )}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

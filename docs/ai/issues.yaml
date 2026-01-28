@@ -20,11 +20,20 @@ issues:
       appropriate slot position.
     trace_link: "apps/web/src/components/layout/LeftPanel.tsx"
     workaround: "Use the '+' button in the rack toolbar to add modules instead."
-    status: Open
-    next_action: "Investigate drag-drop event handlers in LeftPanel.tsx and WorkArea.tsx"
+    status: Resolved
+    next_action: null
     history:
       - timestamp: 2026-01-25T12:00:00Z
         note: "Issue created. Drag-drop was intended as primary module add method."
+      - timestamp: 2026-01-27T11:00:00Z
+        note: |
+          Fixed two issues:
+          1. Race condition in rackStore.createRack() - wasn't updating local config state
+             immediately, relying on 100ms sync loop. Now updates config immediately from
+             API response.
+          2. Improved drag-leave handling in WorkArea.tsx using dragCounter ref to prevent
+             premature isDragOver reset when dragging over child elements.
+          Also fixed loadConfig() to update local state immediately for consistency.
 
   - id: AI-ISSUE-2026012502
     title: "Module list lacks scrollbar when content overflows"

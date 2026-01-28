@@ -81,13 +81,13 @@ export const useRackStore = create<RackStore>((set, get) => ({
   },
 
   createRack: async (name, description) => {
-    await tauriApi.createRack(name, description);
-    set({ configPath: null });
+    const config = await tauriApi.createRack(name, description);
+    set({ config, configPath: null, moduleStates: new Map() });
   },
 
   loadConfig: async (path) => {
-    await tauriApi.loadConfig(path);
-    set({ configPath: path });
+    const config = await tauriApi.loadConfig(path);
+    set({ config, configPath: path, moduleStates: new Map() });
   },
 
   clearRack: async () => {

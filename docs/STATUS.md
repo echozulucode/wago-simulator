@@ -16,6 +16,19 @@ Last Updated: 2026-01-27
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
 
+### [2026-01-27] - Drag-and-Drop Module Fix (AI-ISSUE-2026012501)
+
+*   **Action:** Fixed drag-and-drop module placement from catalog to rack.
+*   **Detail:**
+    *   Fixed race condition in `rackStore.createRack()` - wasn't updating local config state immediately.
+    *   Fixed `rackStore.loadConfig()` for same issue.
+    *   Improved drag-leave handling in `WorkArea.tsx` using `dragCounter` ref to prevent premature reset.
+    *   Added `onDragEnter` handler for proper drag state tracking.
+*   **Outcome:** Success. Drag-and-drop from Module Catalog to Work Area now works correctly.
+*   **Artifacts:**
+    *   `apps/web/src/stores/rackStore.ts`
+    *   `apps/web/src/components/layout/WorkArea.tsx`
+
 ### [2026-01-27] - Settings Dialog Implementation
 
 *   **Action:** Implemented Settings dialog for application configuration.

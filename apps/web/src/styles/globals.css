@@ -9,6 +9,14 @@
     -webkit-user-select: none;
   }
 
+  /* Ensure draggable elements work in WebView2 */
+  [draggable="true"] {
+    -webkit-user-drag: element;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;

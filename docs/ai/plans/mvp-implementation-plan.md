@@ -39,9 +39,9 @@ This document outlines a phased approach to building a Minimum Viable Product (M
 5. ~~**Add export config flow**~~ - Already implemented
 6. ~~**Implement Settings dialog**~~ - Done
 
-### Optional (Nice-to-have)
-7. Fix drag-and-drop module placement (if time permits).
-8. Add module list scrollbar.
+### Optional (Nice-to-have) - IN PROGRESS
+7. ~~Fix drag-and-drop module placement~~ - Done (AI-ISSUE-2026012501)
+8. Add module list scrollbar (AI-ISSUE-2026012502).
 
 ---
 

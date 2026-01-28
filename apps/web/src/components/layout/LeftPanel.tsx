@@ -154,31 +154,55 @@ interface DraggableModuleProps {
 }
 
 function DraggableModule({ moduleNumber, name, type: _type, color, onAdd }: DraggableModuleProps) {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    console.log('[DraggableModule] onDragStart:', moduleNumber);
+    // Set the data in multiple formats for compatibility
+    e.dataTransfer.setData('text/plain', moduleNumber);
+    e.dataTransfer.setData('text', moduleNumber);
+    e.dataTransfer.effectAllowed = 'copy';
+    // Set drag image for visual feedback
+    const target = e.currentTarget;
+    e.dataTransfer.setDragImage(target, target.offsetWidth / 2, target.offsetHeight / 2);
+  };
+
   return (
     <div
       className="flex items-center gap-2 px-2 py-1.5 hover:bg-panel-hover rounded-sm cursor-grab active:cursor-grabbing group"
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', moduleNumber);
-        e.dataTransfer.effectAllowed = 'copy';
+      draggable={true}
+      onMouseDown={(e) => {
+        console.log('[DraggableModule] onMouseDown:', moduleNumber, 'button:', e.button);
+      }}
+      onDragStart={handleDragStart}
+      onDrag={(e) => {
+        // Fires continuously while dragging
+        if (e.clientX !== 0 || e.clientY !== 0) {
+          console.log('[DraggableModule] onDrag:', moduleNumber, e.clientX, e.clientY);
+        }
+      }}
+      onDragEnd={(e) => {
+        console.log('[DraggableModule] onDragEnd:', moduleNumber, 'dropEffect:', e.dataTransfer.dropEffect);
       }}
       data-module={moduleNumber}
     >
-      <GripVertical className="w-3 h-3 text-panel-text-muted opacity-0 group-hover:opacity-100" />
+      <GripVertical className="w-3 h-3 text-panel-text-muted opacity-0 group-hover:opacity-100 pointer-events-none" />
       <div
-        className="w-1 h-6 rounded-full"
+        className="w-1 h-6 rounded-full pointer-events-none"
         style={{ backgroundColor: color }}
       />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pointer-events-none">
         <div className="text-xs font-mono text-panel-text">{moduleNumber}</div>
         <div className="text-xxs text-panel-text-muted truncate">{name}</div>
       </div>
       <button
         className="p-1 opacity-0 group-hover:opacity-100 hover:bg-panel-active rounded"
-        onClick={onAdd}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
         title="Add to rack"
       >
-        <Plus className="w-3 h-3" />
+        <Plus className="w-3 h-3 pointer-events-none" />
       </button>
     </div>
   );
