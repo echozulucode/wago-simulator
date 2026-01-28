@@ -182,29 +182,47 @@ pub struct AnalogInputModule {
     config: ModuleInstance,
     values: Vec<f64>, // mA or Volts
     channel_count: usize,
+    raw_min: u16,
+    raw_max: u16,
+    default_min: f64,
+    default_max: f64,
 }
 
 impl AnalogInputModule {
     pub fn new(config: ModuleInstance, channel_count: usize) -> Self {
+        // Set module-specific raw ranges and defaults per rioservice implementation
+        let (raw_min, raw_max, default_min, default_max) = match config.module_number.as_str() {
+            "750-454" => (0x0000, 0x7FF8, 4.0, 20.0),  // 2-ch, 4-20mA, differential
+            "750-455" => (0x0000, 0x7FF0, 4.0, 20.0),  // 4-ch, 4-20mA, single-ended
+            _ => (0x0000, 0x7FFF, 0.0, 10.0),          // Default: 0-10V
+        };
+        
         Self {
             config,
-            values: vec![0.0; channel_count],
+            values: vec![default_min; channel_count],
             channel_count,
+            raw_min,
+            raw_max,
+            default_min,
+            default_max,
         }
     }
 
     fn value_to_raw(&self, val: f64) -> u16 {
-        if self.config.module_number.contains("455") || self.config.module_number.contains("454") {
-             // 4-20mA
-             if val < 4.0 { return 0; }
-             let norm = (val - 4.0) / 16.0;
-             let raw = (norm * 32767.0) as i32;
-             return raw.clamp(0, 32767) as u16;
+        // Clamp to valid range
+        let clamped = val.clamp(self.default_min, self.default_max);
+        
+        // Scale: raw = (val - minValue) / (maxValue - minValue) * (rawMax - rawMin) + rawMin
+        let range = self.default_max - self.default_min;
+        if range.abs() < f64::EPSILON {
+            return self.raw_min;
         }
-        // Default linear 0-10
-        let norm = val / 10.0;
-        let raw = (norm * 32767.0) as i32;
-        raw.clamp(0, 32767) as u16
+        
+        let norm = (clamped - self.default_min) / range;
+        let raw_range = (self.raw_max - self.raw_min) as f64;
+        let raw = self.raw_min as f64 + (norm * raw_range);
+        
+        raw.round().clamp(self.raw_min as f64, self.raw_max as f64) as u16
     }
 }
 
@@ -271,24 +289,62 @@ pub struct AnalogOutputModule {
     config: ModuleInstance,
     values: Vec<f64>,
     channel_count: usize,
+    raw_min: u16,
+    raw_max: u16,
+    default_min: f64,
+    default_max: f64,
 }
 
 impl AnalogOutputModule {
     pub fn new(config: ModuleInstance, channel_count: usize) -> Self {
+        // Set module-specific raw ranges per rioservice implementation
+        let (raw_min, raw_max, default_min, default_max) = match config.module_number.as_str() {
+            "750-563" => (0x0000, 0x7FF8, 4.0, 20.0),  // 2-ch, 4-20mA
+            "750-555" => (0x0000, 0x7FF0, 4.0, 20.0),  // 4-ch, 4-20mA
+            _ => (0x0000, 0x7FFF, 0.0, 10.0),          // Default: 0-10V
+        };
+        
         Self {
             config,
-            values: vec![0.0; channel_count],
+            values: vec![default_min; channel_count],
             channel_count,
+            raw_min,
+            raw_max,
+            default_min,
+            default_max,
         }
     }
     
     fn raw_to_value(&self, raw: u16) -> f64 {
-        let norm = raw as f64 / 32767.0;
-        if self.config.module_number.contains("563") {
-            return 4.0 + (norm * 16.0);
+        // Inverse scaling: EU = scale * raw + offset
+        // where scale = (maxValue - minValue) / (rawMax - rawMin)
+        let raw_clamped = raw.clamp(self.raw_min, self.raw_max);
+        let raw_range = (self.raw_max - self.raw_min) as f64;
+        
+        if raw_range < f64::EPSILON {
+            return self.default_min;
         }
-        // Default 0-10V
-        norm * 10.0
+        
+        let norm = (raw_clamped - self.raw_min) as f64 / raw_range;
+        let value = self.default_min + (norm * (self.default_max - self.default_min));
+        
+        value.clamp(self.default_min, self.default_max)
+    }
+    
+    fn value_to_raw(&self, val: f64) -> u16 {
+        // EU -> raw conversion for display
+        let clamped = val.clamp(self.default_min, self.default_max);
+        let range = self.default_max - self.default_min;
+        
+        if range.abs() < f64::EPSILON {
+            return self.raw_min;
+        }
+        
+        let norm = (clamped - self.default_min) / range;
+        let raw_range = (self.raw_max - self.raw_min) as f64;
+        let raw = self.raw_min as f64 + (norm * raw_range);
+        
+        raw.round().clamp(self.raw_min as f64, self.raw_max as f64) as u16
     }
 }
 
@@ -306,7 +362,7 @@ impl Module for AnalogOutputModule {
             ChannelState {
                 channel: i as u16,
                 value: ChannelValue::Number(val),
-                raw_value: 0, // TODO: reverse calc if needed
+                raw_value: self.value_to_raw(val),
                 fault: None,
                 status: 0,
                 override_active: false,
@@ -351,6 +407,8 @@ impl Module for AnalogOutputModule {
 }
 
 // --- RTD Input Module (750-461, 464) ---
+// Per rioservice: RTD modules interpret registers as SIGNED int16_t
+// 750-464: rawMin=0xF830 (-2000), rawMax=0x2134 (+8500), scale=0.1, range=-200.0 to 850.0°C (Pt100)
 pub struct RTDModule {
     config: ModuleInstance,
     temperatures: Vec<f64>,
@@ -367,8 +425,21 @@ impl RTDModule {
     }
 
     fn temp_to_raw(&self, temp: f64) -> u16 {
-        let val = (temp + 200.0) * 10.0;
-        val.round().clamp(0.0, 65535.0) as u16
+        // RTD modules use signed interpretation with fixed 0.1 scale
+        // temp_celsius * 10 = raw_value (as int16_t)
+        // Raw range: 0xF830 (-2000) to 0x2134 (+8500) for Pt100 (-200°C to 850°C)
+        const RAW_MIN: i16 = -2000; // 0xF830
+        const RAW_MAX: i16 = 8500;  // 0x2134
+        
+        // Clamp temperature
+        let clamped = temp.clamp(-200.0, 850.0);
+        
+        // Convert: raw = temp * 10
+        let raw_signed = (clamped * 10.0).round() as i16;
+        let clamped_raw = raw_signed.clamp(RAW_MIN, RAW_MAX);
+        
+        // Return as u16 (reinterpret signed as unsigned for wire format)
+        clamped_raw as u16
     }
 }
 
@@ -553,7 +624,11 @@ pub fn create_module(config: ModuleInstance) -> Option<Box<dyn Module>> {
         "750-454" => Some(Box::new(AnalogInputModule::new(config, 2))),
         
         "750-461" => Some(Box::new(RTDModule::new(config, 2))),
-        "750-464" => Some(Box::new(RTDModule::new(config, 4))),
+        "750-464" => {
+            // Per rioservice: 750-464 is configurable as 2 or 4 channel
+            // Default to 2 channels (can be extended with config parsing)
+            Some(Box::new(RTDModule::new(config, 2)))
+        },
         
         "750-563" => Some(Box::new(AnalogOutputModule::new(config, 2))),
         "750-555" => Some(Box::new(AnalogOutputModule::new(config, 4))),

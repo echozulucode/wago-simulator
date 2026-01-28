@@ -4,6 +4,7 @@ import type {
   ModuleInstance,
   ModuleState,
   SimulationState,
+  ConnectionState,
 } from '@wago/shared';
 import { tauriApi } from '../api/tauri';
 import { useConnectionStore } from './connectionStore';
@@ -33,6 +34,7 @@ interface RackStore {
   
   startSimulation: () => Promise<void>;
   stopSimulation: () => Promise<void>;
+  resetAllIO: () => Promise<void>;
   
   // Selectors
   getModule: (moduleId: string) => ModuleInstance | undefined;
@@ -138,6 +140,10 @@ export const useRackStore = create<RackStore>((set, get) => ({
 
   stopSimulation: async () => {
     await tauriApi.stopSimulation();
+  },
+
+  resetAllIO: async () => {
+    await tauriApi.resetAllIO();
   },
 
   // Selectors

@@ -311,6 +311,65 @@ impl Simulator {
         // Counters are also Holding Registers (Output)
         matches!(module_number, "750-563" | "750-555" | "750-404" | "750-633")
     }
+
+    /// Encode module ID according to WAGO discovery spec:
+    /// - Digital I/O modules: 0x8000 | (channel_count << 8) | (is_output << 1) | is_input
+    /// - Analog/Special modules: part number as decimal (e.g., 455 for 750-455)
+    fn encode_module_id(module_number: &str) -> u16 {
+        // Parse part number from "750-XXX" format
+        let part_num = module_number
+            .split('-')
+            .nth(1)
+            .and_then(|s| s.parse::<u16>().ok())
+            .unwrap_or(0);
+
+        // Digital I/O modules use special encoding
+        match module_number {
+            // Digital Inputs
+            "750-1405" => 0x8000 | (16 << 8) | 0x01,  // 16-Ch DI: 0x9001
+            "750-1415" => 0x8000 | (8 << 8) | 0x01,   // 8-Ch DI: 0x8801
+            "750-430"  => 0x8000 | (8 << 8) | 0x01,   // 8-Ch DI: 0x8801
+            "753-440"  => 0x8000 | (4 << 8) | 0x01,   // 4-Ch DI: 0x8401
+            
+            // Digital Outputs
+            "750-1504" => 0x8000 | (16 << 8) | 0x02,  // 16-Ch DO: 0x9002
+            "750-1515" => 0x8000 | (8 << 8) | 0x02,   // 8-Ch DO: 0x8802
+            "750-530"  => 0x8000 | (8 << 8) | 0x02,   // 8-Ch DO: 0x8802
+            "750-515"  => 0x8000 | (4 << 8) | 0x02,   // 4-Ch DO: 0x8402
+            
+            // Analog/Special modules return part number as decimal
+            _ => part_num,
+        }
+    }
+
+    /// Calculate I/O bit counts for registers 0x1022-0x1025
+    fn calculate_io_bit_counts(&self) -> (u16, u16, u16, u16) {
+        let mut output_analog_bytes = 0u16;
+        let mut input_analog_bytes = 0u16;
+        let mut output_digital_bits = 0u16;
+        let mut input_digital_bits = 0u16;
+
+        for module in &self.modules {
+            let module_number = module.get_config().module_number.as_str();
+            
+            if Self::is_analog_output(module_number) {
+                output_analog_bytes += module.get_output_image_size() as u16;
+            }
+            if Self::is_analog_input(module_number) {
+                input_analog_bytes += module.get_input_image_size() as u16;
+            }
+            if Self::is_digital_output(module_number) {
+                output_digital_bits += (module.get_output_image_size() * 8) as u16;
+            }
+            if Self::is_digital_input(module_number) {
+                input_digital_bits += (module.get_input_image_size() * 8) as u16;
+            }
+        }
+
+        // Return (output_analog_bits, input_analog_bits, output_digital_bits, input_digital_bits)
+        // Analog bits = byte_count * 8
+        (output_analog_bytes * 8, input_analog_bytes * 8, output_digital_bits, input_digital_bits)
+    }
     
     pub fn read_discrete_inputs(&self) -> Vec<bool> {
         let mut bits = Vec::new();
@@ -357,6 +416,26 @@ impl Simulator {
     }
 
     pub fn read_special_input_registers(&self, addr: u16, cnt: u16) -> Option<Vec<u16>> {
+        // Handle WAGO discovery registers (0x1022+, 0x2000+)
+        if addr >= 0x1022 && addr <= 0x1025 {
+            // I/O Bit Count Registers
+            let (output_analog_bits, input_analog_bits, output_digital_bits, input_digital_bits) = 
+                self.calculate_io_bit_counts();
+            
+            let mut result = Vec::new();
+            for i in 0..cnt {
+                let val = match addr + i {
+                    0x1022 => output_analog_bits,
+                    0x1023 => input_analog_bits,
+                    0x1024 => output_digital_bits,
+                    0x1025 => input_digital_bits,
+                    _ => 0,
+                };
+                result.push(val);
+            }
+            return Some(result);
+        }
+        
         if addr >= 0x2000 {
             let mut result = Vec::new();
             for i in 0..cnt {
@@ -364,16 +443,67 @@ impl Simulator {
                 let val = match reg_addr {
                     0x2010 => 0x0100, // FW Version 1.0
                     0x2011 => 0x0750, // Series 750
-                    0x2012 => 0x0362, // Coupler 362
-                    a if a >= 0x2030 => {
-                        let module_idx = (a - 0x2030) as usize;
+                    0x2012 => {
+                        // Return coupler part number
+                        if let Some(ref config) = self.config {
+                            let coupler = &config.coupler.module_number;
+                            coupler.split('-')
+                                .nth(1)
+                                .and_then(|s| s.parse::<u16>().ok())
+                                .unwrap_or(362)
+                        } else {
+                            362 // Default to 750-362
+                        }
+                    },
+                    // Module Discovery Registers (Batch 0-3)
+                    0x2030 => {
+                        // First register is always coupler
+                        if let Some(ref config) = self.config {
+                            let coupler = &config.coupler.module_number;
+                            coupler.split('-')
+                                .nth(1)
+                                .and_then(|s| s.parse::<u16>().ok())
+                                .unwrap_or(362)
+                        } else {
+                            362
+                        }
+                    },
+                    a if a >= 0x2031 && a <= 0x2070 => {
+                        // Batch 0: 0x2031-0x2070 (indices 1-64 for modules)
+                        let module_idx = (a - 0x2031) as usize;
                         if module_idx < self.modules.len() {
-                            let mod_num_str = &self.modules[module_idx].get_config().module_number;
-                            if let Some(suffix) = mod_num_str.split('-').nth(1) {
-                                suffix.parse::<u16>().unwrap_or(0)
-                            } else {
-                                0
-                            }
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0 // End of rack / empty slot
+                        }
+                    },
+                    a if a >= 0x2071 && a <= 0x20AE => {
+                        // Batch 1: 0x2071-0x20AE (64 modules)
+                        let module_idx = 64 + (a - 0x2071) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0
+                        }
+                    },
+                    a if a >= 0x20AF && a <= 0x20EC => {
+                        // Batch 2: 0x20AF-0x20EC (64 modules)
+                        let module_idx = 128 + (a - 0x20AF) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0
+                        }
+                    },
+                    a if a >= 0x20ED && a <= 0x2129 => {
+                        // Batch 3: 0x20ED-0x2129 (63 modules)
+                        let module_idx = 192 + (a - 0x20ED) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
                         } else {
                             0
                         }
@@ -387,28 +517,130 @@ impl Simulator {
         None
     }
 
-    // General Holding Register Read (Watchdog + AO + General Storage)
+    // General Holding Register Read (Watchdog + Discovery + AO + General Storage)
     pub fn read_holding_registers(&self, addr: u16, cnt: u16) -> Vec<u16> {
+        // Handle WAGO discovery registers (0x1022+, 0x2000+) via Holding Registers (FC3)
+        if addr >= 0x1022 && addr <= 0x1025 {
+            // I/O Bit Count Registers
+            let (output_analog_bits, input_analog_bits, output_digital_bits, input_digital_bits) = 
+                self.calculate_io_bit_counts();
+            
+            let mut result = Vec::new();
+            for i in 0..cnt {
+                let val = match addr + i {
+                    0x1022 => output_analog_bits,
+                    0x1023 => input_analog_bits,
+                    0x1024 => output_digital_bits,
+                    0x1025 => input_digital_bits,
+                    _ => 0,
+                };
+                result.push(val);
+            }
+            return result;
+        }
+        
+        if addr >= 0x2000 {
+            let mut result = Vec::new();
+            for i in 0..cnt {
+                let reg_addr = addr + i;
+                let val = match reg_addr {
+                    0x2010 => 0x0100, // FW Version 1.0
+                    0x2011 => 0x0750, // Series 750
+                    0x2012 => {
+                        // Return coupler part number
+                        if let Some(ref config) = self.config {
+                            let coupler = &config.coupler.module_number;
+                            coupler.split('-')
+                                .nth(1)
+                                .and_then(|s| s.parse::<u16>().ok())
+                                .unwrap_or(362)
+                        } else {
+                            362 // Default to 750-362
+                        }
+                    },
+                    // Module Discovery Registers (Batch 0-3)
+                    0x2030 => {
+                        // First register is always coupler
+                        if let Some(ref config) = self.config {
+                            let coupler = &config.coupler.module_number;
+                            coupler.split('-')
+                                .nth(1)
+                                .and_then(|s| s.parse::<u16>().ok())
+                                .unwrap_or(362)
+                        } else {
+                            362
+                        }
+                    },
+                    a if a >= 0x2031 && a <= 0x2070 => {
+                        // Batch 0: 0x2031-0x2070 (indices 1-64 for modules)
+                        let module_idx = (a - 0x2031) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0 // End of rack / empty slot
+                        }
+                    },
+                    a if a >= 0x2071 && a <= 0x20AE => {
+                        // Batch 1: 0x2071-0x20AE (64 modules)
+                        let module_idx = 64 + (a - 0x2071) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0
+                        }
+                    },
+                    a if a >= 0x20AF && a <= 0x20EC => {
+                        // Batch 2: 0x20AF-0x20EC (64 modules)
+                        let module_idx = 128 + (a - 0x20AF) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0
+                        }
+                    },
+                    a if a >= 0x20ED && a <= 0x2129 => {
+                        // Batch 3: 0x20ED-0x2129 (63 modules)
+                        let module_idx = 192 + (a - 0x20ED) as usize;
+                        if module_idx < self.modules.len() {
+                            let module_number = &self.modules[module_idx].get_config().module_number;
+                            Self::encode_module_id(module_number)
+                        } else {
+                            0
+                        }
+                    },
+                    _ => 0
+                };
+                result.push(val);
+            }
+            return result;
+        }
+        
+        // Handle Input Process Image at address 0 (DI + AI data)
+        if addr == 0 {
+            // Return input process image as holding registers (FC3)
+            // This matches the C++ implementation where address 0 returns the input process image
+            let all_input_regs = self.read_input_registers();
+            return all_input_regs.iter().take(cnt as usize).copied().collect();
+        }
+        
+        // Standard holding registers
         let mut result = Vec::new();
         for i in 0..cnt {
             let reg_addr = addr + i;
-            if reg_addr == 0x1000 {
-                result.push(self.watchdog_timeout as u16);
-            } else {
-                // Check if it falls into Analog Output area?
-                // Currently AOs map to holding_registers via write?
-                // Or should we iterate modules?
-                // WAGO maps AO to holding registers.
-                // We'll read from `holding_registers` which should be updated by writes/internal logic.
-                // But for simulation, we need `read` to return the AO values.
-                // Let's iterate AO modules first to see if addr matches.
-                // Assuming AO mapping starts at 0.
-                
-                // For MVP, just return from storage.
-                if (reg_addr as usize) < self.holding_registers.len() {
-                    result.push(self.holding_registers[reg_addr as usize]);
-                } else {
-                    result.push(0);
+            match reg_addr {
+                0x1000 => result.push(self.watchdog_timeout as u16),
+                0x1003 => result.push(0), // Watchdog trigger (write-only, returns 0)
+                0x1009 => result.push(0), // Socket close config (returns stored value or 0)
+                _ => {
+                    // Return from general storage
+                    if (reg_addr as usize) < self.holding_registers.len() {
+                        result.push(self.holding_registers[reg_addr as usize]);
+                    } else {
+                        result.push(0);
+                    }
                 }
             }
         }
@@ -450,14 +682,27 @@ impl Simulator {
         for (i, &val) in values.iter().enumerate() {
             let reg_addr = addr + i as u16;
             
-            // Watchdog config
-            if reg_addr == 0x1000 {
-                self.watchdog_timeout = val as u64;
-                self.touch_watchdog();
-            } else {
-                // Update general storage
-                if (reg_addr as usize) < self.holding_registers.len() {
-                    self.holding_registers[reg_addr as usize] = val;
+            match reg_addr {
+                // Watchdog timeout configuration
+                0x1000 => {
+                    self.watchdog_timeout = val as u64;
+                    self.touch_watchdog();
+                },
+                // Watchdog trigger (any write resets watchdog)
+                0x1003 => {
+                    self.touch_watchdog();
+                },
+                // Socket close on watchdog config
+                0x1009 => {
+                    if (reg_addr as usize) < self.holding_registers.len() {
+                        self.holding_registers[reg_addr as usize] = val;
+                    }
+                },
+                // General storage
+                _ => {
+                    if (reg_addr as usize) < self.holding_registers.len() {
+                        self.holding_registers[reg_addr as usize] = val;
+                    }
                 }
             }
         }

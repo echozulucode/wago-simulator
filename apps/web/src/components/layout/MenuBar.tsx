@@ -101,7 +101,7 @@ function Menu({ label, items, isOpen, onOpen, onClose }: MenuProps) {
                   {/* Nested Submenu */}
                   {item.submenu && activeSubmenu === item.id && (
                       <div className="absolute left-full top-0 min-w-[200px] bg-menu-bg border border-menu-border shadow-panel-lg py-1 -ml-1">
-                          {item.submenu.map((sub, subIdx) => (
+                          {item.submenu.map((sub) => (
                               <button
                                 key={sub.id}
                                 className={cn(

@@ -7,7 +7,7 @@ let mockConfig: RackConfig | null = null;
 let mockModuleStates: ModuleState[] = [];
 let mockSimulationState = 'stopped';
 let moduleIdCounter = 0;
-let mockModbusClients: { id: string; address: string; connectedAt: number; lastActivity: number; requestCount: number }[] = [];
+const mockModbusClients: { id: string; address: string; connectedAt: number; lastActivity: number; requestCount: number }[] = [];
 
 const createDefaultModuleState = (module: ModuleInstance): ModuleState => {
   const definition = MODULE_CATALOG[module.moduleNumber];
@@ -29,6 +29,7 @@ const createDefaultModuleState = (module: ModuleInstance): ModuleState => {
   };
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
   // console.log(`[MockTauri] invoke: ${cmd}`, args);
 
@@ -67,7 +68,7 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
     case 'list_configs':
       return [];
 
-    case 'add_module':
+    case 'add_module': {
       if (!mockConfig) throw new Error('No rack');
       const id = `module-${++moduleIdCounter}`;
       const instance: ModuleInstance = {
@@ -82,6 +83,7 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
       mockModuleStates.push(newState);
       
       return instance;
+    }
 
     case 'remove_module':
       if (!mockConfig) return;
@@ -89,7 +91,7 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
       mockModuleStates = mockModuleStates.filter(m => m.id !== args.moduleId);
       return;
 
-    case 'set_channel_value':
+    case 'set_channel_value': {
         const modState = mockModuleStates.find(m => m.id === args.moduleId);
         if (modState) {
             const ch = modState.channels.find(c => c.channel === args.channel);
@@ -99,6 +101,7 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
             }
         }
         return;
+    }
 
     case 'start_simulation':
       mockSimulationState = 'running';

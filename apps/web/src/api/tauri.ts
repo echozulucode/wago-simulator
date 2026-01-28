@@ -81,6 +81,10 @@ export const tauriApi = {
     return await invoke('stop_simulation');
   },
 
+  resetAllIO: async (): Promise<void> => {
+    return await invoke('reset_all_io');
+  },
+
   saveConfigDialog: async (defaultPath?: string): Promise<string | null> => {
     if (!isTauri) {
       console.warn('Save dialog not available outside Tauri');

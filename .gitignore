@@ -37,3 +37,5 @@ test-results/
 
 # Misc
 *.local
+/venv/
+/work/
