@@ -6,6 +6,7 @@ import { useForceStore } from '@/stores/forceStore';
 import { MODULE_CATALOG, MODULE_TYPE_LABELS } from '@wago/shared';
 import { formatAddress } from '@/utils/formatting';
 import { Zap } from 'lucide-react';
+import { ReactiveDebugPanel } from '@/components/debug/ReactiveDebugPanel';
 
 function ModuleProperties() {
   const { selectedModuleId } = useUIStore();
@@ -336,9 +337,13 @@ export function RightPanel() {
       />
 
       {/* Properties panel */}
-      <Panel title="Properties" noPadding className="flex-1">
-        <ModuleProperties />
-        {selectedChannel !== null && <ChannelOverride />}
+      <Panel title="Properties" noPadding className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto">
+          <ModuleProperties />
+          {selectedChannel !== null && <ChannelOverride />}
+        </div>
+        {/* Reactive Debug Panel */}
+        <ReactiveDebugPanel />
       </Panel>
     </div>
   );

@@ -117,6 +117,12 @@ impl Simulator {
                 module_count,
                 &channel_counts,
             );
+
+            // Auto-activate the default scenario if one exists
+            // Using 100ms tick rate (matching the simulation tick rate)
+            if let Err(e) = self.reactive_manager.auto_activate_default(100) {
+                eprintln!("Warning: Failed to auto-activate default reactive scenario: {}", e);
+            }
         } else {
             // Clear reactive manager if no reactive scenarios
             self.reactive_manager = ReactiveScenarioManager::new();

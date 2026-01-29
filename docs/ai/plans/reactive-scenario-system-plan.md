@@ -371,29 +371,37 @@ Deliverables:
 
 ---
 
-## Phase 4 — Scenario Management + Switching + Default Loading (Backend)
+## Phase 4 — Scenario Management + Switching + Default Loading (Backend) ✅ COMPLETE
 
 **Goal:** Runtime selection with lifecycle correctness.
 
 Tasks:
 
-- [ ] Auto-load default reactive scenario on start (validate uniqueness)
-- [ ] Add commands:
+- [x] Auto-load default reactive scenario on start (validate uniqueness)
+- [x] Add commands:
   - list_reactive_scenarios
   - load_reactive_scenario
   - disable_reactive_scenario
   - get_active_reactive_scenario
 
-- [ ] On switch:
+- [x] On switch:
   - deactivate old runtime
   - activate new runtime
   - clear pending delay states
 
-- [ ] Add validation for referenced channels against rack model
+- [x] Add validation for referenced channels against rack model
 
 Deliverables:
 
-- Hot switching is reliable and deterministic
+- Hot switching is reliable and deterministic ✅
+
+**Implementation Notes (2026-01-29):**
+- Added `auto_activate_default()` method to ReactiveScenarioManager
+- Updated `load_from_yaml_string()` to call `auto_activate_default()` after loading scenarios
+- Scenario switching properly deactivates old runtime before activating new one
+- Lifecycle hooks (on_activate, on_deactivate) clear pending delay states
+- All commands were already implemented in Phase 1 - verified working
+- Added 4 new unit tests for scenario management (total 23 tests)
 
 ---
 
@@ -430,24 +438,32 @@ Deliverables:
 
 ---
 
-## Phase 6 — Frontend UI: Scenario Selector + Debug Panel
+## Phase 6 — Frontend UI: Scenario Selector + Debug Panel ✅ COMPLETE
 
 **Goal:** Switching + introspection.
 
 Tasks:
 
-- [ ] Reactive scenario dropdown (with Default badge)
-- [ ] “None” option
-- [ ] Add Debug panel (collapsible):
+- [x] Reactive scenario dropdown (with Default badge)
+- [x] "None" option
+- [x] Add Debug panel (collapsible):
   - active behaviors
   - pending delays
   - blocked_by (Force/Manual)
 
-- [ ] Display validation errors on load and on scenario switch
+- [x] Display validation errors on load and on scenario switch
 
 Deliverables:
 
-- Users can self-diagnose most “why isn’t it changing?” issues
+- Users can self-diagnose most "why isn't it changing?" issues ✅
+
+**Implementation Notes (2026-01-29):**
+- Created `reactiveScenarioStore.ts` for reactive scenario state management
+- Added reactive scenario dropdown to Toolbar with Zap icon and Default badges
+- Created `ReactiveDebugPanel` component with collapsible behavior list
+- Shows validation errors, pending delays, and blocked-by status
+- Integrated into RightPanel for easy access
+- State sync added to rackStore's 10Hz poll loop
 
 ---
 

@@ -10,6 +10,7 @@ import { tauriApi } from '../api/tauri';
 import { useConnectionStore } from './connectionStore';
 import { useScenarioStore } from './scenarioStore';
 import { useForceStore } from './forceStore';
+import { useReactiveScenarioStore } from './reactiveScenarioStore';
 
 interface RackStore {
   // Configuration (persisted in backend)
@@ -82,6 +83,10 @@ export const useRackStore = create<RackStore>((set, get) => ({
 
         // Sync force state
         await useForceStore.getState().fetchForces();
+
+        // Sync reactive scenario state (debug state only - scenarios list loaded on config change)
+        await useReactiveScenarioStore.getState().fetchActiveScenario();
+        await useReactiveScenarioStore.getState().fetchDebugState();
       } catch (e) {
         // console.warn("Failed to sync state (backend might be offline)", e);
       }
@@ -92,12 +97,14 @@ export const useRackStore = create<RackStore>((set, get) => ({
     const config = await tauriApi.createRack(name, description);
     set({ config, configPath: null, moduleStates: new Map() });
     await useScenarioStore.getState().refreshAvailableScenarios();
+    await useReactiveScenarioStore.getState().refreshAll();
   },
 
   loadConfig: async (path) => {
     const config = await tauriApi.loadConfig(path);
     set({ config, configPath: path, moduleStates: new Map() });
     await useScenarioStore.getState().refreshAvailableScenarios();
+    await useReactiveScenarioStore.getState().refreshAll();
   },
 
   clearRack: async () => {
@@ -108,6 +115,7 @@ export const useRackStore = create<RackStore>((set, get) => ({
       moduleStates: new Map(),
     });
     await useScenarioStore.getState().refreshAvailableScenarios();
+    await useReactiveScenarioStore.getState().refreshAll();
   },
 
   saveConfig: async () => {

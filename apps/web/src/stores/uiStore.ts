@@ -25,7 +25,11 @@ export interface DialogState {
   settingsDialogOpen: boolean;
 }
 
-export interface UIState extends PanelState, SelectionState, ViewState, DialogState {
+export interface DebugPanelState {
+  reactiveDebugExpanded: boolean;
+}
+
+export interface UIState extends PanelState, SelectionState, ViewState, DialogState, DebugPanelState {
   // Panel actions
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
@@ -50,6 +54,9 @@ export interface UIState extends PanelState, SelectionState, ViewState, DialogSt
   // Dialog actions
   openSettingsDialog: () => void;
   closeSettingsDialog: () => void;
+
+  // Debug panel actions
+  toggleReactiveDebug: () => void;
 }
 
 const MIN_PANEL_WIDTH = 180;
@@ -77,6 +84,9 @@ export const useUIStore = create<UIState>((set) => ({
 
   // Initial dialog state
   settingsDialogOpen: false,
+
+  // Initial debug panel state
+  reactiveDebugExpanded: false,
 
   // Panel actions
   toggleLeftPanel: () =>
@@ -129,4 +139,8 @@ export const useUIStore = create<UIState>((set) => ({
   // Dialog actions
   openSettingsDialog: () => set({ settingsDialogOpen: true }),
   closeSettingsDialog: () => set({ settingsDialogOpen: false }),
+
+  // Debug panel actions
+  toggleReactiveDebug: () =>
+    set((state) => ({ reactiveDebugExpanded: !state.reactiveDebugExpanded })),
 }));

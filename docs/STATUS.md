@@ -1,20 +1,57 @@
 # Project Status: WAGO 750 Simulator
 
-Last Updated: 2026-01-28
+Last Updated: 2026-01-29
 
 ## I. Current Context (The "State")
 
-*   **Active Sprint/Phase:** Phase 6: Reactive Scenario System
-*   **Current Objective:** Implement YAML-driven reactive scenario system with force overrides.
+*   **Active Sprint/Phase:** Phase 6: Reactive Scenario System - Scenario Selector + Debug Panel
+*   **Current Objective:** Implement scenario selector dropdown and debug introspection panel.
 *   **Current Blockers:** None.
 *   **Active Working Files:**
-    *   `apps/web/src-tauri/src/reactive.rs`
-    *   `apps/web/src-tauri/src/state.rs`
-    *   `packages/shared/src/types/reactive.ts`
+    *   `apps/web/src/components/layout/Toolbar.tsx`
+    *   `apps/web/src/components/debug/ReactiveDebugPanel.tsx`
+    *   `apps/web/src/stores/reactiveScenarioStore.ts`
 
 ## II. Execution Log (The "Ledger")
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
+
+### [2026-01-29] - Reactive Scenario System Phase 6: Scenario Selector + Debug Panel
+
+*   **Action:** Implemented frontend UI for reactive scenario selection and debug introspection.
+*   **Detail:**
+    *   **Reactive Scenario Store:** Created `reactiveScenarioStore.ts` Zustand store for scenario list, active scenario, validation errors, and debug state.
+    *   **Toolbar Dropdown:** Added reactive scenario dropdown to Toolbar with Zap icon, "Default" badge, and "None" option.
+    *   **Active Indicator:** Shows behavior count badge when a reactive scenario is active.
+    *   **Debug Panel:** Created collapsible `ReactiveDebugPanel` component in RightPanel showing:
+        - Validation errors and warnings with severity badges
+        - Active behaviors with source/target mapping
+        - Pending delay state visualization
+        - Blocked-by indicators (Force/Manual)
+    *   **State Sync:** Integrated reactive scenario state into rackStore sync loop.
+    *   **UI Store:** Added `reactiveDebugExpanded` state and toggle action.
+*   **Outcome:** Success. Users can now select reactive scenarios and view real-time debug state.
+*   **Artifacts:**
+    *   `apps/web/src/stores/reactiveScenarioStore.ts` (new)
+    *   `apps/web/src/components/debug/ReactiveDebugPanel.tsx` (new)
+    *   `apps/web/src/components/layout/Toolbar.tsx` (reactive scenario dropdown)
+    *   `apps/web/src/components/layout/RightPanel.tsx` (debug panel integration)
+    *   `apps/web/src/stores/uiStore.ts` (debug panel state)
+    *   `apps/web/src/stores/rackStore.ts` (reactive sync integration)
+
+### [2026-01-29] - Reactive Scenario System Phase 4: Scenario Management + Auto-Load
+
+*   **Action:** Implemented Phase 4 - scenario management with auto-load and proper lifecycle.
+*   **Detail:**
+    *   **Auto-Activate Default:** Added `auto_activate_default()` method that finds and activates the default scenario with its runtime.
+    *   **Config Load Integration:** Updated `load_from_yaml_string()` to auto-activate default scenario after loading.
+    *   **Scenario Switching:** Verified that switching scenarios properly deactivates old runtime and activates new one.
+    *   **Lifecycle Correctness:** on_activate/on_deactivate hooks clear pending delay states to prevent ghost updates.
+    *   **Validation:** Channel reference validation against rack model already implemented in Phase 1.
+*   **Outcome:** Success. Phase 4 complete with 23 passing unit tests (4 new tests).
+*   **Artifacts:**
+    *   `apps/web/src-tauri/src/reactive.rs` (auto_activate_default method)
+    *   `apps/web/src-tauri/src/state.rs` (auto-activate call in load_from_yaml_string)
 
 ### [2026-01-29] - Reactive Scenario System Phase 5: Force Controls UI
 

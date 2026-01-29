@@ -643,9 +643,10 @@ impl ReactiveScenarioManager {
         module_count: usize,
         channel_counts: &[usize],
     ) {
-        // Clear existing
-        self.scenarios.clear();
+        // Clear existing runtime and scenarios
+        self.active_runtime = None;
         self.active_scenario = None;
+        self.scenarios.clear();
 
         // Filter to only reactive scenarios
         let reactive_scenarios: Vec<ReactiveScenario> = scenarios
@@ -661,11 +662,28 @@ impl ReactiveScenarioManager {
             self.scenarios.insert(scenario.name.clone(), scenario);
         }
 
-        // Auto-load default if validation passed
-        if self.validation_result.is_valid() {
-            if let Some(default_scenario) = self.scenarios.values().find(|s| s.default) {
-                self.active_scenario = Some(default_scenario.name.clone());
-            }
+        // Note: To auto-activate the default scenario with its runtime,
+        // call auto_activate_default() after this method.
+    }
+
+    /// Auto-activate the default scenario (if one exists and validation passed)
+    /// Call this after load_scenarios() to start the default scenario's runtime
+    pub fn auto_activate_default(&mut self, tick_ms: u64) -> Result<Option<String>, String> {
+        if !self.validation_result.is_valid() {
+            return Ok(None); // Don't auto-activate if there are validation errors
+        }
+
+        // Find the default scenario
+        let default_name = self.scenarios
+            .values()
+            .find(|s| s.default)
+            .map(|s| s.name.clone());
+
+        if let Some(name) = default_name {
+            self.activate_scenario_with_runtime(&name, tick_ms)?;
+            Ok(Some(name))
+        } else {
+            Ok(None)
         }
     }
 
@@ -1896,5 +1914,154 @@ mod tests {
         let results = runtime.evaluate(&scenario, 6, |_| 1.0, |_| false, |_| false);
         assert_eq!(results.len(), 1, "Delayed behavior should produce output after delay");
         assert_eq!(results[0].1, 1.0);
+    }
+
+    // ========== Phase 4 Tests: Scenario Management ==========
+
+    #[test]
+    fn test_auto_activate_default_scenario() {
+        let mut manager = ReactiveScenarioManager::new();
+
+        let scenarios = vec![
+            ReactiveScenario {
+                name: "non-default".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: None,
+                default: false,
+                behaviors: vec![],
+            },
+            ReactiveScenario {
+                name: "default-scenario".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: Some("The default".to_string()),
+                default: true,
+                behaviors: vec![],
+            },
+        ];
+
+        manager.load_scenarios(scenarios, 0, &[]);
+
+        // Auto-activate should return the default scenario name
+        let result = manager.auto_activate_default(100);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Some("default-scenario".to_string()));
+
+        // Active scenario should be set
+        assert_eq!(manager.active_scenario, Some("default-scenario".to_string()));
+        assert!(manager.active_runtime.is_some());
+    }
+
+    #[test]
+    fn test_auto_activate_no_default() {
+        let mut manager = ReactiveScenarioManager::new();
+
+        let scenarios = vec![
+            ReactiveScenario {
+                name: "scenario1".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: None,
+                default: false,
+                behaviors: vec![],
+            },
+        ];
+
+        manager.load_scenarios(scenarios, 0, &[]);
+
+        // Auto-activate should return None when no default exists
+        let result = manager.auto_activate_default(100);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), None);
+
+        // No active scenario should be set
+        assert!(manager.active_scenario.is_none());
+        assert!(manager.active_runtime.is_none());
+    }
+
+    #[test]
+    fn test_scenario_switching_clears_runtime() {
+        let mut manager = ReactiveScenarioManager::new();
+
+        let scenarios = vec![
+            ReactiveScenario {
+                name: "scenario-a".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: None,
+                default: true,
+                behaviors: vec![
+                    ReactiveBehavior {
+                        id: "behavior-a".to_string(),
+                        source: None,
+                        target: ChannelRef::new(0, 0),
+                        mapping: BehaviorMappingYaml::Constant,
+                        delay_ms: 0,
+                        enabled: true,
+                        value: Some(1.0),
+                    },
+                ],
+            },
+            ReactiveScenario {
+                name: "scenario-b".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: None,
+                default: false,
+                behaviors: vec![
+                    ReactiveBehavior {
+                        id: "behavior-b".to_string(),
+                        source: None,
+                        target: ChannelRef::new(0, 1),
+                        mapping: BehaviorMappingYaml::Constant,
+                        delay_ms: 0,
+                        enabled: true,
+                        value: Some(2.0),
+                    },
+                ],
+            },
+        ];
+
+        manager.load_scenarios(scenarios, 1, &[2]);
+        manager.auto_activate_default(100).unwrap();
+
+        // Verify scenario-a is active
+        assert_eq!(manager.active_scenario, Some("scenario-a".to_string()));
+
+        // Switch to scenario-b
+        let result = manager.activate_scenario_with_runtime("scenario-b", 100);
+        assert!(result.is_ok());
+
+        // Verify scenario-b is now active
+        assert_eq!(manager.active_scenario, Some("scenario-b".to_string()));
+        assert!(manager.active_runtime.is_some());
+
+        // The runtime should be for scenario-b
+        let runtime = manager.active_runtime.as_ref().unwrap();
+        assert_eq!(runtime.scenario_name, "scenario-b");
+    }
+
+    #[test]
+    fn test_deactivate_clears_everything() {
+        let mut manager = ReactiveScenarioManager::new();
+
+        let scenarios = vec![
+            ReactiveScenario {
+                name: "test-scenario".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: None,
+                default: true,
+                behaviors: vec![],
+            },
+        ];
+
+        manager.load_scenarios(scenarios, 0, &[]);
+        manager.auto_activate_default(100).unwrap();
+
+        assert!(manager.active_scenario.is_some());
+        assert!(manager.active_runtime.is_some());
+
+        // Deactivate
+        manager.deactivate_scenario_with_runtime();
+
+        // Both should be cleared
+        assert!(manager.active_scenario.is_none());
+        assert!(manager.active_runtime.is_none());
     }
 }
