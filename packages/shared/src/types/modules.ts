@@ -39,6 +39,16 @@ export interface ModuleDefinition {
 }
 
 /**
+ * Identifies who/what set a channel's current value.
+ * Precedence (highest to lowest): Force > Manual > Scenario > Default
+ */
+export type ValueSource =
+  | { type: 'default' }
+  | { type: 'scenario'; scenarioName: string; behaviorId?: string }
+  | { type: 'manual' }
+  | { type: 'force' };
+
+/**
  * Channel state for a single I/O point
  */
 export interface ChannelState {
@@ -47,7 +57,16 @@ export interface ChannelState {
   rawValue: number;
   fault: FaultType;
   status: number;
-  override: boolean; // Whether manually overridden
+  /** Who/what set this value (Default, Scenario, Manual, Force) */
+  source: ValueSource;
+  /** Is this channel currently forced? */
+  forced: boolean;
+  /** Is this channel under manual GUI control? */
+  manual: boolean;
+  /** Which behavior owns this channel (if source is Scenario) */
+  scenarioBehaviorId?: string;
+  /** Legacy field for backwards compatibility */
+  override: boolean;
 }
 
 /**

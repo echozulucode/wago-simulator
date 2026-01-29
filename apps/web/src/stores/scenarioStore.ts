@@ -17,7 +17,7 @@ interface ScenarioState {
   refreshStatus: () => Promise<void>;
 }
 
-export const useScenarioStore = create<ScenarioState>((set, get) => ({
+export const useScenarioStore = create<ScenarioState>((set) => ({
   active: false,
   name: null,
   elapsedMs: 0,

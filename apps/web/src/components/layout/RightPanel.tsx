@@ -2,8 +2,10 @@ import { Panel, PanelSection, Badge } from '@/components/common';
 import { LEDIndicator, ToggleSwitch, Slider, NumericInput, ValueDisplay } from '@/components/controls';
 import { useUIStore } from '@/stores/uiStore';
 import { useRackStore } from '@/stores/rackStore';
+import { useForceStore } from '@/stores/forceStore';
 import { MODULE_CATALOG, MODULE_TYPE_LABELS } from '@wago/shared';
 import { formatAddress } from '@/utils/formatting';
+import { Zap } from 'lucide-react';
 
 function ModuleProperties() {
   const { selectedModuleId } = useUIStore();
@@ -81,7 +83,8 @@ function ModuleProperties() {
 
 function ChannelOverride() {
   const { selectedModuleId, selectedChannel } = useUIStore();
-  const { getModule, getModuleState, setChannelValue } = useRackStore();
+  const { getModule, getModuleState, setChannelValue, config } = useRackStore();
+  const { isForced, getForcedValue, setForce, clearForce } = useForceStore();
 
   if (selectedModuleId === null || selectedChannel === null) {
     return null;
@@ -100,15 +103,94 @@ function ChannelOverride() {
     return null;
   }
 
+  // Get module position for force operations
+  const modulePosition = config?.modules.findIndex(m => m.id === selectedModuleId) ?? -1;
+  const channelIsForced = modulePosition >= 0 && isForced(modulePosition, selectedChannel);
+  const forcedValue = modulePosition >= 0 ? getForcedValue(modulePosition, selectedChannel) : undefined;
+
   const handleValueChange = (value: number | boolean) => {
     setChannelValue(selectedModuleId, selectedChannel, value);
   };
 
+  const handleForceToggle = (enabled: boolean) => {
+    if (modulePosition < 0) return;
+
+    if (enabled) {
+      // When enabling force, use current value
+      const currentValue = typeof channelState.value === 'boolean'
+        ? (channelState.value ? 1 : 0)
+        : (channelState.value as number);
+      setForce(modulePosition, selectedChannel, currentValue);
+    } else {
+      clearForce(modulePosition, selectedChannel);
+    }
+  };
+
+  const handleForceValueChange = (value: number | boolean) => {
+    if (modulePosition < 0) return;
+    const numericValue = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+    setForce(modulePosition, selectedChannel, numericValue);
+  };
+
+  const isDigital = definition.type === 'digital-input' || definition.type === 'digital-output';
+
   return (
     <div className="border-t border-panel-border p-3 space-y-3">
-      <h4 className="text-xs font-medium text-panel-text-muted uppercase tracking-wide">
+      <h4 className="text-xs font-medium text-panel-text-muted uppercase tracking-wide flex items-center gap-2">
         Channel {selectedChannel} Override
+        {channelIsForced && (
+          <span className="flex items-center gap-1 text-wago-orange">
+            <Zap className="w-3 h-3" />
+            <span className="text-[10px] font-bold">FORCED</span>
+          </span>
+        )}
       </h4>
+
+      {/* Force Controls Section */}
+      {modulePosition >= 0 && (
+        <div className={`space-y-2 p-2 rounded ${channelIsForced ? 'bg-wago-orange/10 border border-wago-orange/30' : 'bg-panel-bg-hover'}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-panel-text flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              Force Enable
+            </span>
+            <ToggleSwitch
+              value={channelIsForced}
+              onChange={handleForceToggle}
+              labels={{ on: 'ON', off: 'OFF' }}
+              size="sm"
+            />
+          </div>
+
+          {/* Force value control for digital channels */}
+          {channelIsForced && isDigital && (
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-sm text-panel-text">Force Value</span>
+              <ToggleSwitch
+                value={forcedValue !== undefined ? forcedValue > 0.5 : false}
+                onChange={(v) => handleForceValueChange(v ? 1 : 0)}
+                labels={{ on: 'HIGH', off: 'LOW' }}
+                size="sm"
+              />
+            </div>
+          )}
+
+          {/* Force value control for analog channels */}
+          {channelIsForced && !isDigital && (
+            <div className="pt-1 space-y-2">
+              <span className="text-xs text-panel-text-muted">Force Value</span>
+              <NumericInput
+                value={forcedValue ?? 0}
+                onChange={handleForceValueChange}
+                min={definition.type === 'rtd-input' ? -200 : 0}
+                max={definition.type === 'rtd-input' ? 850 : 24}
+                step={0.01}
+                suffix={definition.type === 'rtd-input' ? '°C' : 'mA'}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Digital Input */}
       {definition.type === 'digital-input' && (
@@ -119,6 +201,7 @@ function ChannelOverride() {
               value={channelState.value as boolean}
               onChange={handleValueChange}
               labels={{ on: 'HIGH', off: 'LOW' }}
+              disabled={channelIsForced}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -130,7 +213,7 @@ function ChannelOverride() {
         </div>
       )}
 
-      {/* Digital Output (read-only) */}
+      {/* Digital Output */}
       {definition.type === 'digital-output' && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -139,9 +222,16 @@ function ChannelOverride() {
               {channelState.value ? 'Active' : 'Inactive'}
             </span>
           </div>
-          <p className="text-xs text-panel-text-muted">
-            Output values are controlled by the connected client
-          </p>
+          {!channelIsForced && (
+            <p className="text-xs text-panel-text-muted">
+              Output values are controlled by the connected client
+            </p>
+          )}
+          {channelIsForced && (
+            <p className="text-xs text-wago-orange">
+              Output is forced - client writes are ignored
+            </p>
+          )}
         </div>
       )}
 
@@ -155,6 +245,7 @@ function ChannelOverride() {
             max={24}
             step={0.01}
             formatValue={(v) => `${v.toFixed(2)} mA`}
+            disabled={channelIsForced}
           />
           <NumericInput
             value={channelState.value as number}
@@ -163,6 +254,7 @@ function ChannelOverride() {
             max={24}
             step={0.01}
             suffix="mA"
+            disabled={channelIsForced}
           />
           <div className="text-xs text-panel-text-muted">
             Range: 0-24 mA (4-20 mA nominal)
@@ -180,6 +272,7 @@ function ChannelOverride() {
             max={850}
             step={0.1}
             formatValue={(v) => `${v.toFixed(1)} °C`}
+            disabled={channelIsForced}
           />
           <NumericInput
             value={channelState.value as number}
@@ -188,6 +281,7 @@ function ChannelOverride() {
             max={850}
             step={0.1}
             suffix="°C"
+            disabled={channelIsForced}
           />
           <div className="text-xs text-panel-text-muted">
             Pt100 range: -200 to +850 °C

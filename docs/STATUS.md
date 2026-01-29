@@ -1,19 +1,107 @@
 # Project Status: WAGO 750 Simulator
 
-Last Updated: 2026-01-27
+Last Updated: 2026-01-28
 
 ## I. Current Context (The "State")
 
-*   **Active Sprint/Phase:** Phase 5: Polish & Integration
-*   **Current Objective:** Complete UI shell functionality and prepare for MVP release.
+*   **Active Sprint/Phase:** Phase 6: Reactive Scenario System
+*   **Current Objective:** Implement YAML-driven reactive scenario system with force overrides.
 *   **Current Blockers:** None.
 *   **Active Working Files:**
-    *   `apps/web/src/components/layout/LeftPanel.tsx`
-    *   `apps/web/src/components/common/Panel.tsx`
+    *   `apps/web/src-tauri/src/reactive.rs`
+    *   `apps/web/src-tauri/src/state.rs`
+    *   `packages/shared/src/types/reactive.ts`
 
 ## II. Execution Log (The "Ledger")
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
+
+### [2026-01-29] - Reactive Scenario System Phase 5: Force Controls UI
+
+*   **Action:** Implemented frontend UI for force override controls per user request.
+*   **Detail:**
+    *   **Force Store:** Created `forceStore.ts` Zustand store to manage force state and sync with backend.
+    *   **Right Panel Controls:** Added force enable toggle and force value toggle to ChannelOverride in RightPanel.
+    *   **Visual Indicators:** Force-enabled channels show orange highlighting, Zap icon, and "FORCED" badge.
+    *   **Context Menu:** Added right-click context menu on channel rows with "Force ON", "Force OFF", "Clear Force" options.
+    *   **Context Menu Component:** Created reusable `ContextMenu` component with keyboard support.
+    *   **State Sync:** Added force state polling in rackStore's sync loop.
+    *   **Disabled Controls:** Normal value controls are disabled when a channel is forced.
+*   **Outcome:** Success. Force controls accessible via right panel toggles and right-click menu.
+*   **Artifacts:**
+    *   `apps/web/src/stores/forceStore.ts` (new)
+    *   `apps/web/src/components/common/ContextMenu.tsx` (new)
+    *   `apps/web/src/components/layout/RightPanel.tsx` (force controls in ChannelOverride)
+    *   `apps/web/src/components/rack/IOCard.tsx` (context menu, force indicators)
+    *   `apps/web/src/components/rack/RackView.tsx` (modulePosition prop)
+    *   `apps/web/src/stores/rackStore.ts` (force sync in poll loop)
+
+### [2026-01-28] - Reactive Scenario System Phase 3: Force Overrides with Shadow Writes
+
+*   **Action:** Implemented Phase 3 of the reactive scenario system - force overrides with shadow Modbus write tracking.
+*   **Detail:**
+    *   **Shadow Write Tracking:** Extended `ChannelForce` with `shadow_value` and `shadow_write_tick` fields.
+    *   **Shadow Recording:** Added `record_shadow_write()` method to capture Modbus writes while channel is forced.
+    *   **Coil Write Integration:** Updated `write_coils()` to check for forced channels and record shadow values.
+    *   **Holding Register Integration:** Updated `write_holding_registers()` to check forced AO channels and record shadows.
+    *   **API Enhancement:** Added `shadowValue` to `ForceInfo` response for debugging/UI display.
+    *   **Deterministic Clear:** Force clearing reverts to Manual > Scenario > Default as per ownership model.
+*   **Outcome:** Success. Phase 3 complete with 19 passing unit tests (3 new tests).
+*   **Next Steps (Phase 4):**
+    *   Auto-load default reactive scenario on start
+    *   Implement hot scenario switching with lifecycle correctness
+*   **Artifacts:**
+    *   `apps/web/src-tauri/src/reactive.rs` (ChannelForce shadow fields, record_shadow_write)
+    *   `apps/web/src-tauri/src/state.rs` (write_coils, write_holding_registers force checking)
+    *   `packages/shared/src/types/reactive.ts` (ForceInfo.shadowValue)
+
+### [2026-01-28] - Reactive Scenario System Phase 2: Graph + Delays + Lifecycle
+
+*   **Action:** Implemented Phase 2 of the reactive scenario system - deterministic evaluation engine.
+*   **Detail:**
+    *   **Dependency Graph:** Built adjacency list representation from behavior source/target relationships.
+    *   **Cycle Detection:** Implemented DFS with node coloring (white/gray/black) to detect dependency cycles.
+    *   **Topological Sort:** Implemented Kahn's algorithm for deterministic evaluation order.
+    *   **BehaviorRuntime:** Per-behavior state tracking (last_source_value, pending_until_tick, pending_value).
+    *   **ReactiveScenarioRuntime:** Lifecycle hooks (on_activate, on_deactivate) that clear pending state.
+    *   **Delay Handling:** Behaviors with delay_ms schedule values to apply after specified ticks.
+    *   **Ownership Enforcement:** Scenario writes blocked if target has Force or Manual override.
+    *   **Tick Integration:** Reactive evaluation runs each simulator tick, applying values to modules.
+    *   **Debug Introspection:** Added `get_reactive_debug_state` command showing behavior states.
+*   **Outcome:** Success. Phase 2 complete with 16 passing unit tests (9 new tests).
+*   **Next Steps (Phase 3):**
+    *   Implement shadow Modbus writes for forced outputs
+    *   Track last Modbus write value for debugging
+*   **Artifacts:**
+    *   `apps/web/src-tauri/src/reactive.rs` (DependencyGraph, BehaviorRuntime, ReactiveScenarioRuntime)
+    *   `apps/web/src-tauri/src/state.rs` (tick integration, evaluate_reactive_scenario helper)
+    *   `apps/web/src-tauri/src/lib.rs` (get_reactive_debug_state command)
+    *   `packages/shared/src/types/reactive.ts` (BehaviorDebug type)
+    *   `apps/web/src/api/tauri.ts` (getReactiveDebugState method)
+
+### [2026-01-28] - Reactive Scenario System Phase 1: Schema + Validation + Ownership Core
+
+*   **Action:** Implemented Phase 1 of the reactive scenario system per `docs/ai/plans/reactive-scenario-system-plan.md`.
+*   **Detail:**
+    *   **Ownership Model:** Added `ValueSource` enum (Default, Scenario, Manual, Force) with clear precedence rules.
+    *   **Channel State Enhancement:** Extended `ChannelState` with `source`, `forced`, `manual`, and `scenarioBehaviorId` fields.
+    *   **Reactive Scenario Schema:** Created new YAML schema for continuous I/O behaviors with `mapping` types (direct, inverted, scaled, constant).
+    *   **Validation:** Implemented strict YAML validation with structured errors (duplicate IDs, missing source/value, channel bounds, multiple defaults).
+    *   **ReactiveScenarioManager:** New manager class handling scenario loading, validation, force overrides, and manual overrides.
+    *   **Tauri Commands:** Added 13 new commands for reactive scenarios, forces, manual overrides, and validation.
+    *   **TypeScript Types:** Added frontend types for reactive scenarios, forces, and validation errors.
+    *   **Example Config:** Updated `test_rack.yaml` with example `reactive_scenarios` section.
+*   **Outcome:** Success. Phase 1 foundation complete with 7 passing unit tests.
+*   **Artifacts:**
+    *   `apps/web/src-tauri/src/reactive.rs` (new module)
+    *   `apps/web/src-tauri/src/state.rs` (ReactiveScenarioManager integration)
+    *   `apps/web/src-tauri/src/models.rs` (ChannelState ownership fields)
+    *   `apps/web/src-tauri/src/lib.rs` (13 new Tauri commands)
+    *   `apps/web/src-tauri/src/sim_config.rs` (reactive_scenarios field)
+    *   `packages/shared/src/types/reactive.ts` (new types)
+    *   `packages/shared/src/types/modules.ts` (ValueSource type)
+    *   `apps/web/src/api/tauri.ts` (new API methods)
+    *   `test_rack.yaml` (example reactive scenarios)
 
 ### [2026-01-27] - Module Catalog Scrollbar Fix (AI-ISSUE-2026012502)
 

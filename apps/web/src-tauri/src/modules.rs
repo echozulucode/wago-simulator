@@ -50,14 +50,11 @@ impl Module for DigitalInputModule {
 
     fn get_state(&self) -> ModuleState {
         let channels = self.channels.iter().enumerate().map(|(i, &val)| {
-            ChannelState {
-                channel: i as u16,
-                value: ChannelValue::Bool(val),
-                raw_value: if val { 1 } else { 0 },
-                fault: None,
-                status: 0,
-                override_active: false,
-            }
+            ChannelState::new(
+                i as u16,
+                ChannelValue::Bool(val),
+                if val { 1 } else { 0 },
+            )
         }).collect();
 
         ModuleState {
@@ -128,14 +125,11 @@ impl Module for DigitalOutputModule {
 
     fn get_state(&self) -> ModuleState {
         let channels = self.channels.iter().enumerate().map(|(i, &val)| {
-            ChannelState {
-                channel: i as u16,
-                value: ChannelValue::Bool(val),
-                raw_value: if val { 1 } else { 0 },
-                fault: None,
-                status: 0,
-                override_active: false,
-            }
+            ChannelState::new(
+                i as u16,
+                ChannelValue::Bool(val),
+                if val { 1 } else { 0 },
+            )
         }).collect();
 
         ModuleState {
@@ -237,14 +231,11 @@ impl Module for AnalogInputModule {
 
     fn get_state(&self) -> ModuleState {
         let channels = self.values.iter().enumerate().map(|(i, &val)| {
-            ChannelState {
-                channel: i as u16,
-                value: ChannelValue::Number(val),
-                raw_value: self.value_to_raw(val),
-                fault: None,
-                status: 0,
-                override_active: false,
-            }
+            ChannelState::new(
+                i as u16,
+                ChannelValue::Number(val),
+                self.value_to_raw(val),
+            )
         }).collect();
 
         ModuleState {
@@ -359,14 +350,11 @@ impl Module for AnalogOutputModule {
 
     fn get_state(&self) -> ModuleState {
         let channels = self.values.iter().enumerate().map(|(i, &val)| {
-            ChannelState {
-                channel: i as u16,
-                value: ChannelValue::Number(val),
-                raw_value: self.value_to_raw(val),
-                fault: None,
-                status: 0,
-                override_active: false,
-            }
+            ChannelState::new(
+                i as u16,
+                ChannelValue::Number(val),
+                self.value_to_raw(val),
+            )
         }).collect();
 
         ModuleState {
@@ -454,14 +442,11 @@ impl Module for RTDModule {
 
     fn get_state(&self) -> ModuleState {
         let channels = self.temperatures.iter().enumerate().map(|(i, &val)| {
-            ChannelState {
-                channel: i as u16,
-                value: ChannelValue::Number(val),
-                raw_value: self.temp_to_raw(val),
-                fault: None,
-                status: 0,
-                override_active: false,
-            }
+            ChannelState::new(
+                i as u16,
+                ChannelValue::Number(val),
+                self.temp_to_raw(val),
+            )
         }).collect();
 
         ModuleState {
@@ -480,7 +465,7 @@ impl Module for RTDModule {
     }
 
     fn get_input_image_size(&self) -> usize {
-        self.channel_count * 2 
+        self.channel_count * 2
     }
 
     fn get_output_image_size(&self) -> usize {
@@ -535,21 +520,18 @@ impl Module for CounterModule {
 
     fn get_state(&self) -> ModuleState {
         // Expose count as channel 0
-        let mut channels = Vec::new();
-        channels.push(ChannelState {
-            channel: 0,
-            value: ChannelValue::Number(self.count as f64),
-            raw_value: (self.count & 0xFFFF) as u16, // Only show lower 16 bits in raw?
-            fault: None,
-            status: self.status,
-            override_active: false,
-        });
-        
+        let mut ch = ChannelState::new(
+            0,
+            ChannelValue::Number(self.count as f64),
+            (self.count & 0xFFFF) as u16, // Only show lower 16 bits in raw
+        );
+        ch.status = self.status;
+
         ModuleState {
             id: self.config.id.clone(),
             module_number: self.config.module_number.clone(),
             slot_position: self.config.slot_position,
-            channels,
+            channels: vec![ch],
             last_update: current_time_ms(),
         }
     }

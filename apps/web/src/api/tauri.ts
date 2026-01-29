@@ -1,7 +1,19 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { open as tauriOpen, save as tauriSave } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import type { RackConfig, ModuleInstance, ModuleState, SimulationState, ConnectionState } from '@wago/shared';
+import type {
+  RackConfig,
+  ModuleInstance,
+  ModuleState,
+  SimulationState,
+  ConnectionState,
+  ReactiveScenarioInfo,
+  ActiveReactiveScenario,
+  ForceInfo,
+  ManualInfo,
+  ValidationError,
+  BehaviorDebug,
+} from '@wago/shared';
 import { mockInvoke } from '../mocks/tauriMock';
 
 // Detect if running in Tauri
@@ -130,5 +142,71 @@ export const tauriApi = {
       // Fallback: try to destroy the window
       await getCurrentWindow().destroy();
     }
+  },
+
+  // --- Reactive Scenario API ---
+
+  listReactiveScenarios: async (): Promise<ReactiveScenarioInfo[]> => {
+    return await invoke('list_reactive_scenarios');
+  },
+
+  loadReactiveScenario: async (name: string): Promise<string> => {
+    return await invoke('load_reactive_scenario', { name });
+  },
+
+  disableReactiveScenario: async (): Promise<void> => {
+    return await invoke('disable_reactive_scenario');
+  },
+
+  getActiveReactiveScenario: async (): Promise<ActiveReactiveScenario | null> => {
+    return await invoke('get_active_reactive_scenario');
+  },
+
+  // --- Force Override API ---
+
+  setChannelForce: async (modulePosition: number, channel: number, value: number): Promise<void> => {
+    return await invoke('set_channel_force', { modulePosition, channel, value });
+  },
+
+  clearChannelForce: async (modulePosition: number, channel: number): Promise<void> => {
+    return await invoke('clear_channel_force', { modulePosition, channel });
+  },
+
+  clearAllForces: async (): Promise<void> => {
+    return await invoke('clear_all_forces');
+  },
+
+  getForces: async (): Promise<ForceInfo[]> => {
+    return await invoke('get_forces');
+  },
+
+  // --- Manual Override API ---
+
+  setManualOverride: async (modulePosition: number, channel: number, value: number): Promise<void> => {
+    return await invoke('set_manual_override', { modulePosition, channel, value });
+  },
+
+  clearManualOverride: async (modulePosition: number, channel: number): Promise<void> => {
+    return await invoke('clear_manual_override', { modulePosition, channel });
+  },
+
+  clearAllManualOverrides: async (): Promise<void> => {
+    return await invoke('clear_all_manual_overrides');
+  },
+
+  getManualOverrides: async (): Promise<ManualInfo[]> => {
+    return await invoke('get_manual_overrides');
+  },
+
+  // --- Validation API ---
+
+  getValidationErrors: async (): Promise<ValidationError[]> => {
+    return await invoke('get_validation_errors');
+  },
+
+  // --- Debug Introspection API ---
+
+  getReactiveDebugState: async (): Promise<BehaviorDebug[]> => {
+    return await invoke('get_reactive_debug_state');
   },
 };

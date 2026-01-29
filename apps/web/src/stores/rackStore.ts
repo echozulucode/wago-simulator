@@ -9,6 +9,7 @@ import type {
 import { tauriApi } from '../api/tauri';
 import { useConnectionStore } from './connectionStore';
 import { useScenarioStore } from './scenarioStore';
+import { useForceStore } from './forceStore';
 
 interface RackStore {
   // Configuration (persisted in backend)
@@ -78,6 +79,9 @@ export const useRackStore = create<RackStore>((set, get) => ({
 
         // Sync scenario status
         await useScenarioStore.getState().refreshStatus();
+
+        // Sync force state
+        await useForceStore.getState().fetchForces();
       } catch (e) {
         // console.warn("Failed to sync state (backend might be offline)", e);
       }

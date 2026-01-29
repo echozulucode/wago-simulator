@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use crate::scenario::Scenario;
+use crate::reactive::ReactiveScenario;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SimConfigRoot {
@@ -10,7 +11,11 @@ pub struct SimConfigRoot {
     pub process_image: ProcessImageConfig,
     pub modbus_map: ModbusMapConfig,
     pub racks: Vec<RackDefinition>,
+    /// Scripted scenarios (step-by-step actions)
     pub scenarios: Option<Vec<Scenario>>,
+    /// Reactive scenarios (continuous I/O behaviors) - new format
+    #[serde(default)]
+    pub reactive_scenarios: Option<Vec<ReactiveScenario>>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

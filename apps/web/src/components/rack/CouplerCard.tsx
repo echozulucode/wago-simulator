@@ -5,9 +5,10 @@ import { useConnectionStore } from '@/stores/connectionStore';
 
 interface CouplerCardProps {
   config: CouplerConfig;
+  height?: number;
 }
 
-export function CouplerCard({ config }: CouplerCardProps) {
+export function CouplerCard({ config, height }: CouplerCardProps) {
   const { simulationState } = useRackStore();
   const { wsConnected, modbusClients } = useConnectionStore();
 
@@ -19,6 +20,7 @@ export function CouplerCard({ config }: CouplerCardProps) {
   return (
     <div
       className="relative flex flex-col w-32 bg-gradient-to-b from-gray-800 to-gray-900 rounded-sm shadow-md"
+      style={height ? { height } : undefined}
       data-testid="coupler-card"
     >
       {/* Module type stripe */}

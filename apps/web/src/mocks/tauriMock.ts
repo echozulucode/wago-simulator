@@ -17,6 +17,10 @@ const createDefaultModuleState = (module: ModuleInstance): ModuleState => {
     rawValue: 0,
     fault: null,
     status: 0,
+    source: { type: 'default' as const },
+    forced: false,
+    manual: false,
+    scenarioBehaviorId: undefined,
     override: false,
   }));
 
@@ -129,6 +133,48 @@ export const mockInvoke = async (cmd: string, args: any = {}): Promise<any> => {
         name: null,
         elapsedMs: 0,
       };
+
+    // Reactive scenario commands
+    case 'list_reactive_scenarios':
+      return [
+        { name: 'Sunny Day', description: 'Normal operation feedback', isDefault: true, behaviorCount: 2 },
+        { name: 'Failure Mode', description: 'Simulates equipment failures', isDefault: false, behaviorCount: 3 },
+      ];
+
+    case 'load_reactive_scenario':
+      return args.name;
+
+    case 'disable_reactive_scenario':
+      return;
+
+    case 'get_active_reactive_scenario':
+      return null;
+
+    // Force override commands
+    case 'set_channel_force':
+    case 'clear_channel_force':
+    case 'clear_all_forces':
+      return;
+
+    case 'get_forces':
+      return [];
+
+    // Manual override commands
+    case 'set_manual_override':
+    case 'clear_manual_override':
+    case 'clear_all_manual_overrides':
+      return;
+
+    case 'get_manual_overrides':
+      return [];
+
+    // Validation commands
+    case 'get_validation_errors':
+      return [];
+
+    // Debug introspection commands
+    case 'get_reactive_debug_state':
+      return [];
 
     default:
       console.warn(`[MockTauri] Unknown command: ${cmd}`);

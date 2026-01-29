@@ -162,7 +162,6 @@ export function MenuBar() {
   } = useRackStore();
 
   const {
-    loadScenario,
     playScenario,
     stopScenario,
     active: scenarioActive,
@@ -285,7 +284,7 @@ export function MenuBar() {
           disabled: simulationState === 'stopped',
         },
         { id: 'div1', label: '', divider: true },
-        { id: 'scenario_load', label: 'Load Scenario...', action: loadScenario },
+        { id: 'scenario_load', label: 'Load Scenario...', action: () => { /* TODO: Show scenario picker dialog */ } },
         { id: 'scenario_start', label: 'Start Scenario', action: playScenario, disabled: !scenarioName || scenarioActive },
         { id: 'scenario_stop', label: 'Stop Scenario', action: stopScenario, disabled: !scenarioActive },
         { id: 'scenarioedit', label: 'Scenario Editor...', action: () => {}, disabled: true },

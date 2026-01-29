@@ -93,3 +93,52 @@ scenarios:
         channel: 1
         action: 'set'
         value: 1.0 # N.C. closes
+
+# Reactive scenarios define continuous I/O relationships (new format)
+reactive_scenarios:
+  - name: 'Sunny Day'
+    type: 'reactive'
+    description: 'Normal operation - direct feedback with realistic delays'
+    default: true
+    behaviors:
+      # Contactor N.O. feedback: DO channel 0 -> DI channel 0 (with 50ms delay)
+      - id: 'contactor_no_feedback'
+        source: { modulePosition: 1, channel: 0 }
+        target: { modulePosition: 0, channel: 0 }
+        mapping: 'direct'
+        delayMs: 50
+        enabled: true
+
+      # Contactor N.C. feedback: DO channel 0 -> DI channel 1 (inverted)
+      - id: 'contactor_nc_feedback'
+        source: { modulePosition: 1, channel: 0 }
+        target: { modulePosition: 0, channel: 1 }
+        mapping: 'inverted'
+        delayMs: 50
+        enabled: true
+
+      # Temperature sensor simulation: constant room temp
+      - id: 'room_temp'
+        target: { modulePosition: 3, channel: 0 }
+        mapping: 'constant'
+        value: 22.5
+        enabled: true
+
+  - name: 'Equipment Failure'
+    type: 'reactive'
+    description: 'Simulates contactor failure (stuck open)'
+    default: false
+    behaviors:
+      # Contactor stuck - N.O. always open
+      - id: 'contactor_no_stuck'
+        target: { modulePosition: 0, channel: 0 }
+        mapping: 'constant'
+        value: 0.0
+        enabled: true
+
+      # N.C. stays closed
+      - id: 'contactor_nc_stuck'
+        target: { modulePosition: 0, channel: 1 }
+        mapping: 'constant'
+        value: 1.0
+        enabled: true

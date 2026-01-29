@@ -5,3 +5,4 @@ export { Panel, PanelSection, type PanelProps, type PanelSectionProps } from './
 export { Divider, type DividerProps } from './Divider';
 export { Badge, type BadgeProps } from './Badge';
 export { Dialog, type DialogProps } from './Dialog';
+export { ContextMenu, type ContextMenuItem } from './ContextMenu';

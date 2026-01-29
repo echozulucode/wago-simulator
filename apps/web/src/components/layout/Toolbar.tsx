@@ -12,7 +12,6 @@ import {
   RotateCcw,
   PlayCircle,
   StopCircle,
-  FileJson,
   ChevronDown,
 } from 'lucide-react';
 import { IconButton } from '@/components/common';

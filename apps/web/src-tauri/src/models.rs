@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use crate::reactive::ValueSource;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,16 +39,54 @@ pub enum ChannelValue {
     Number(f64),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl Default for ChannelValue {
+    fn default() -> Self {
+        ChannelValue::Bool(false)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelState {
     pub channel: u16,
+    #[serde(default)]
     pub value: ChannelValue,
     pub raw_value: u16,
     pub fault: Option<String>,
     pub status: u8,
-    #[serde(rename = "override")]
+    /// Who/what set this value (Default, Scenario, Manual, Force)
+    #[serde(default)]
+    pub source: ValueSource,
+    /// Is this channel currently forced?
+    #[serde(default)]
+    pub forced: bool,
+    /// Is this channel under manual GUI control?
+    #[serde(default)]
+    pub manual: bool,
+    /// Which behavior owns this channel (if source is Scenario)
+    #[serde(default)]
+    pub scenario_behavior_id: Option<String>,
+    /// Legacy field for backwards compatibility
+    #[serde(rename = "override", default)]
     pub override_active: bool,
+}
+
+impl ChannelState {
+    /// Create a new ChannelState with default ownership fields
+    pub fn new(channel: u16, value: ChannelValue, raw_value: u16) -> Self {
+        Self {
+            channel,
+            value,
+            raw_value,
+            fault: None,
+            status: 0,
+            source: ValueSource::Default,
+            forced: false,
+            manual: false,
+            scenario_behavior_id: None,
+            override_active: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

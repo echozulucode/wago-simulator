@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 use crate::models::{ChannelValue, ConnectionState, ModbusClientInfo, ModuleState, RackConfig, SimulationState};
 use crate::modules::{Module, create_module};
 use crate::scenario::{Scenario, ScenarioEngine};
+use crate::reactive::{ReactiveScenarioManager, ChannelRef};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -16,6 +17,8 @@ pub struct Simulator {
     pub modbus_clients: HashMap<String, ModbusClientInfo>,
     pub scenario_engine: ScenarioEngine,
     pub available_scenarios: Vec<Scenario>,
+    /// Reactive scenario manager (continuous I/O behaviors)
+    pub reactive_manager: ReactiveScenarioManager,
 }
 
 impl Simulator {
@@ -30,6 +33,7 @@ impl Simulator {
             modbus_clients: HashMap::new(),
             scenario_engine: ScenarioEngine::new(),
             available_scenarios: Vec::new(),
+            reactive_manager: ReactiveScenarioManager::new(),
         }
     }
     
@@ -55,12 +59,13 @@ impl Simulator {
         self.holding_registers.fill(0);
         self.scenario_engine.stop();
         self.available_scenarios.clear();
+        self.reactive_manager = ReactiveScenarioManager::new();
     }
 
     pub fn load_from_yaml_string(&mut self, yaml_content: &str) -> Result<(), Box<dyn std::error::Error>> {
         let root: crate::sim_config::SimConfigRoot = serde_yaml::from_str(yaml_content)?;
-        
-        // Load scenarios if present
+
+        // Load scripted scenarios if present
         if let Some(scenarios) = root.scenarios {
             self.available_scenarios = scenarios;
         } else {
@@ -79,7 +84,7 @@ impl Simulator {
                 };
                 modules.push(instance);
             }
-            
+
             let config = crate::models::RackConfig {
                 id: rack_def.id.clone(),
                 name: rack_def.name.clone(),
@@ -94,26 +99,117 @@ impl Simulator {
                 created_at: chrono::Utc::now().to_rfc3339(),
                 updated_at: chrono::Utc::now().to_rfc3339(),
             };
-            
+
             self.load_rack(config);
         }
+
+        // Load and validate reactive scenarios
+        if let Some(reactive_scenarios) = root.reactive_scenarios {
+            // Get channel counts for validation
+            let module_count = self.modules.len();
+            let channel_counts: Vec<usize> = self.modules
+                .iter()
+                .map(|m| m.get_state().channels.len())
+                .collect();
+
+            self.reactive_manager.load_scenarios(
+                reactive_scenarios,
+                module_count,
+                &channel_counts,
+            );
+        } else {
+            // Clear reactive manager if no reactive scenarios
+            self.reactive_manager = ReactiveScenarioManager::new();
+        }
+
         Ok(())
     }
     
     pub fn tick(&mut self) {
-        // Run scenario engine tick
-        // We have to use a trick here because scenario_engine.tick(self) 
+        // Run scripted scenario engine tick
+        // We have to use a trick here because scenario_engine.tick(self)
         // would require multiple mutable borrows.
         // Option 1: Move tick logic to Simulator (boring)
         // Option 2: Use internal mutability (not great here)
         // Option 3: Swap out scenario engine (safest for borrow checker)
-        
+
         let mut engine = std::mem::replace(&mut self.scenario_engine, ScenarioEngine::new());
         engine.tick(self);
         self.scenario_engine = engine;
 
+        // Tick the reactive scenario manager (increments tick counter)
+        self.reactive_manager.tick();
+
+        // Phase 2: Evaluate reactive scenario behaviors
+        // The evaluation order per plan:
+        // 1. Read Modbus outputs (controller writes) - already done by server
+        // 2. Apply reactive scenario (deterministic graph evaluation)
+        // 3. Apply manual GUI actions
+        // 4. Apply force overrides
+        // 5. Commit values to process image
+
+        // Step 2: Evaluate reactive scenario and collect values to apply
+        let reactive_updates = self.evaluate_reactive_scenario();
+
+        // Step 3-5: Apply updates respecting ownership precedence
+        for (channel_ref, value, _behavior_id) in reactive_updates {
+            // Check if channel is blocked by force or manual override
+            if self.reactive_manager.is_forced(&channel_ref) {
+                continue; // Force takes precedence
+            }
+            if self.reactive_manager.has_manual_override(&channel_ref) {
+                continue; // Manual takes precedence over scenario
+            }
+
+            // Apply the value to the module
+            if let Some(module) = self.modules.get_mut(channel_ref.module_position) {
+                module.set_channel_value(channel_ref.channel, value);
+            }
+        }
+
+        // Apply force overrides (highest priority)
+        for force_info in self.reactive_manager.get_forces() {
+            if let Some(module) = self.modules.get_mut(force_info.module_position) {
+                module.set_channel_value(force_info.channel as u16, force_info.value);
+            }
+        }
+
         // Check watchdog
         self.check_watchdog();
+    }
+
+    /// Helper: Evaluate active reactive scenario and return values to apply
+    fn evaluate_reactive_scenario(&mut self) -> Vec<(ChannelRef, f64, String)> {
+        // We need to work around borrow checker issues similar to scenario_engine
+        // Collect current channel values first
+        let channel_values: HashMap<(usize, u16), f64> = self.modules
+            .iter()
+            .enumerate()
+            .flat_map(|(pos, module)| {
+                let state = module.get_state();
+                state.channels.into_iter().map(move |ch| {
+                    let value = match ch.value {
+                        ChannelValue::Bool(b) => if b { 1.0 } else { 0.0 },
+                        ChannelValue::Number(n) => n,
+                    };
+                    ((pos, ch.channel), value)
+                })
+            })
+            .collect();
+
+        // Swap out the reactive manager to avoid borrow issues
+        let mut manager = std::mem::replace(&mut self.reactive_manager, ReactiveScenarioManager::new());
+
+        let get_channel_value = |ch: &ChannelRef| {
+            channel_values.get(&(ch.module_position, ch.channel)).copied().unwrap_or(0.0)
+        };
+
+        let results = manager.evaluate_active_scenario(get_channel_value);
+
+        // Swap back
+        self.reactive_manager = manager;
+
+        results
     }
 
     pub fn get_module_state(&self, module_id: &str) -> Option<ModuleState> {
@@ -679,36 +775,47 @@ impl Simulator {
     
     pub fn write_coils(&mut self, addr: u16, values: &[bool]) {
         let mut current_addr = 0;
-        for module in &mut self.modules {
-            if Self::is_digital_output(module.get_config().module_number.as_str()) {
-                let output_size = module.get_output_image_size() * 8; // bits
-                let module_end = current_addr + output_size as u16;
-                
-                let start = addr;
-                let end = addr + values.len() as u16;
-                
-                if start < module_end && end > current_addr {
-                    for (i, &val) in values.iter().enumerate() {
-                        let target_addr = start + i as u16;
-                        if target_addr >= current_addr && target_addr < module_end {
-                            let channel = target_addr - current_addr;
-                            module.set_channel_value(channel, if val { 1.0 } else { 0.0 });
+        // First, collect module positions for digital outputs
+        let do_module_positions: Vec<usize> = self.modules
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| Self::is_digital_output(m.get_config().module_number.as_str()))
+            .map(|(i, _)| i)
+            .collect();
+
+        for module_pos in do_module_positions {
+            let module = &mut self.modules[module_pos];
+            let output_size = module.get_output_image_size() * 8; // bits
+            let module_end = current_addr + output_size as u16;
+
+            let start = addr;
+            let end = addr + values.len() as u16;
+
+            if start < module_end && end > current_addr {
+                for (i, &val) in values.iter().enumerate() {
+                    let target_addr = start + i as u16;
+                    if target_addr >= current_addr && target_addr < module_end {
+                        let channel = target_addr - current_addr;
+                        let channel_ref = ChannelRef::new(module_pos, channel);
+                        let write_value = if val { 1.0 } else { 0.0 };
+
+                        // Check if channel is forced - record shadow write instead
+                        if self.reactive_manager.is_forced(&channel_ref) {
+                            self.reactive_manager.record_shadow_write(&channel_ref, write_value);
+                            // Don't actually apply the value - force takes precedence
+                        } else {
+                            self.modules[module_pos].set_channel_value(channel, write_value);
                         }
                     }
                 }
-                
-                current_addr = module_end;
             }
+
+            current_addr = module_end;
         }
         self.sync_output_registers_from_digital_outputs();
     }
     
     pub fn write_holding_registers(&mut self, addr: u16, values: &[u16]) {
-        // Also update AO modules!
-        // We need to map addr to AO module channels.
-        // Assuming AO starts at 0.
-        let mut current_ao_addr = 0;
-        
         for (i, &val) in values.iter().enumerate() {
             let reg_addr = addr + i as u16;
             
@@ -742,43 +849,68 @@ impl Simulator {
         // We need to check if the written range overlaps with AO map
         let write_start = addr;
         let write_end = addr + values.len() as u16;
-        
-        for module in &mut self.modules {
-            if Self::is_analog_output(module.get_config().module_number.as_str()) {
-                let output_len = module.get_output_image_size(); // bytes
-                let output_words = output_len / 2; // registers
-                let module_end = current_ao_addr + output_words as u16;
-                
-                if write_start < module_end && write_end > current_ao_addr {
-                    // Overlap
-                    // Construct byte buffer for module
-                    let mut bytes = vec![0u8; output_len];
-                    // We only have u16 values.
-                    // We need to see which registers overlap
-                    
-                    for w in 0..output_words {
-                        let word_addr = current_ao_addr + w as u16;
+
+        // Collect AO module positions and their register ranges
+        let ao_modules: Vec<(usize, usize, u16, u16)> = {
+            let mut result = Vec::new();
+            let mut ao_addr = 0u16;
+            for (idx, module) in self.modules.iter().enumerate() {
+                if Self::is_analog_output(module.get_config().module_number.as_str()) {
+                    let output_len = module.get_output_image_size();
+                    let output_words = (output_len / 2) as u16;
+                    result.push((idx, output_len, ao_addr, ao_addr + output_words));
+                    ao_addr += output_words;
+                }
+            }
+            result
+        };
+
+        for (module_pos, output_len, module_start, module_end) in ao_modules {
+            if write_start < module_end && write_end > module_start {
+                // Overlap - construct byte buffer for module
+                let mut bytes = vec![0u8; output_len];
+                let output_words = output_len / 2;
+
+                // For AO modules, typically 1 word = 1 channel (16-bit value)
+                for w in 0..output_words {
+                    let word_addr = module_start + w as u16;
+                    let channel = w as u16; // Channel corresponds to word index
+                    let channel_ref = ChannelRef::new(module_pos, channel);
+
+                    // Determine the value to write
+                    let val = if word_addr >= write_start && word_addr < write_end {
+                        // This register is being written
+                        let val_idx = (word_addr - write_start) as usize;
+                        values[val_idx]
+                    } else {
+                        // Not being written, keep old value from holding registers
+                        if (word_addr as usize) < self.holding_registers.len() {
+                            self.holding_registers[word_addr as usize]
+                        } else { 0 }
+                    };
+
+                    // Check if this channel is forced
+                    if self.reactive_manager.is_forced(&channel_ref) {
+                        // Record the shadow write (what PLC tried to write)
                         if word_addr >= write_start && word_addr < write_end {
-                            let val_idx = (word_addr - write_start) as usize;
-                            let val = values[val_idx];
-                            bytes[w*2] = (val & 0xFF) as u8;
-                            bytes[w*2+1] = (val >> 8) as u8;
+                            self.reactive_manager.record_shadow_write(&channel_ref, val as f64);
+                        }
+                        // Use the forced value instead
+                        if let Some(forced_val) = self.reactive_manager.get_forced_value(&channel_ref) {
+                            let forced_u16 = forced_val as u16;
+                            bytes[w*2] = (forced_u16 & 0xFF) as u8;
+                            bytes[w*2+1] = (forced_u16 >> 8) as u8;
                         } else {
-                            // If we didn't write to this register, we should technically keep old value.
-                            // But `write_outputs` takes full buffer.
-                            // We should probably rely on `holding_registers` as the "current state" source?
-                            // Yes, let's read from holding_registers to fill the buffer.
-                            let val = if (word_addr as usize) < self.holding_registers.len() {
-                                self.holding_registers[word_addr as usize]
-                            } else { 0 };
                             bytes[w*2] = (val & 0xFF) as u8;
                             bytes[w*2+1] = (val >> 8) as u8;
                         }
+                    } else {
+                        // Not forced, apply normally
+                        bytes[w*2] = (val & 0xFF) as u8;
+                        bytes[w*2+1] = (val >> 8) as u8;
                     }
-                    module.write_outputs(&bytes);
                 }
-                
-                current_ao_addr = module_end;
+                self.modules[module_pos].write_outputs(&bytes);
             }
         }
 

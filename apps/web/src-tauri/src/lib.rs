@@ -4,8 +4,10 @@ pub mod server;
 pub mod state;
 pub mod sim_config;
 pub mod scenario;
+pub mod reactive;
 
 use models::{ConnectionState, ModuleInstance, RackConfig, SimulationState, ModuleState};
+use reactive::{BehaviorDebug, ChannelRef, ForceInfo, ManualInfo, ValidationError};
 use state::{AppState, Simulator};
 use std::sync::{Arc, Mutex};
 use tauri::{State, Manager};
@@ -174,6 +176,7 @@ fn build_sim_config_from_rack(config: &RackConfig) -> sim_config::SimConfigRoot 
                 .collect(),
         }],
         scenarios: None,
+        reactive_scenarios: None,
     }
 }
 
@@ -260,12 +263,168 @@ struct ScenarioStatus {
 fn get_scenario_status(state: State<AppState>) -> Result<ScenarioStatus, String> {
     let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
     let engine = &sim.scenario_engine;
-    
+
     Ok(ScenarioStatus {
         active: engine.running,
         name: engine.loaded_scenario.as_ref().map(|s| s.name.clone()),
         elapsed_ms: engine.start_time.map(|t| t.elapsed().as_millis() as u64).unwrap_or(0),
     })
+}
+
+// --- Reactive Scenario Commands ---
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReactiveScenarioInfo {
+    name: String,
+    description: Option<String>,
+    is_default: bool,
+    behavior_count: usize,
+}
+
+#[tauri::command]
+fn list_reactive_scenarios(state: State<AppState>) -> Result<Vec<ReactiveScenarioInfo>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    Ok(sim.reactive_manager.list_scenarios()
+        .iter()
+        .map(|s| ReactiveScenarioInfo {
+            name: s.name.clone(),
+            description: s.description.clone(),
+            is_default: s.default,
+            behavior_count: s.behaviors.len(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+fn load_reactive_scenario(state: State<AppState>, name: String) -> Result<String, String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    // Use runtime-based activation with 10ms tick rate (matching the tick loop)
+    sim.reactive_manager.activate_scenario_with_runtime(&name, 100)?; // 100ms tick in setup loop
+    Ok(name)
+}
+
+#[tauri::command]
+fn disable_reactive_scenario(state: State<AppState>) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    sim.reactive_manager.deactivate_scenario_with_runtime();
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ActiveReactiveScenario {
+    name: String,
+    description: Option<String>,
+    behavior_count: usize,
+}
+
+#[tauri::command]
+fn get_active_reactive_scenario(state: State<AppState>) -> Result<Option<ActiveReactiveScenario>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    Ok(sim.reactive_manager.get_active_scenario().map(|s| ActiveReactiveScenario {
+        name: s.name.clone(),
+        description: s.description.clone(),
+        behavior_count: s.behaviors.len(),
+    }))
+}
+
+// --- Force Override Commands ---
+
+#[tauri::command]
+fn set_channel_force(
+    state: State<AppState>,
+    module_position: usize,
+    channel: u16,
+    value: f64,
+) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let channel_ref = ChannelRef::new(module_position, channel);
+    sim.reactive_manager.set_force(channel_ref, value);
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_channel_force(
+    state: State<AppState>,
+    module_position: usize,
+    channel: u16,
+) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let channel_ref = ChannelRef::new(module_position, channel);
+    sim.reactive_manager.clear_force(&channel_ref);
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_all_forces(state: State<AppState>) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    sim.reactive_manager.clear_all_forces();
+    Ok(())
+}
+
+#[tauri::command]
+fn get_forces(state: State<AppState>) -> Result<Vec<ForceInfo>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    Ok(sim.reactive_manager.get_forces())
+}
+
+// --- Manual Override Commands ---
+
+#[tauri::command]
+fn set_manual_override(
+    state: State<AppState>,
+    module_position: usize,
+    channel: u16,
+    value: f64,
+) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let channel_ref = ChannelRef::new(module_position, channel);
+    sim.reactive_manager.set_manual_override(channel_ref, value);
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_manual_override(
+    state: State<AppState>,
+    module_position: usize,
+    channel: u16,
+) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let channel_ref = ChannelRef::new(module_position, channel);
+    sim.reactive_manager.clear_manual_override(&channel_ref);
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_all_manual_overrides(state: State<AppState>) -> Result<(), String> {
+    let mut sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    sim.reactive_manager.clear_all_manual_overrides();
+    Ok(())
+}
+
+#[tauri::command]
+fn get_manual_overrides(state: State<AppState>) -> Result<Vec<ManualInfo>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    Ok(sim.reactive_manager.get_manual_overrides())
+}
+
+// --- Validation Commands ---
+
+#[tauri::command]
+fn get_validation_errors(state: State<AppState>) -> Result<Vec<ValidationError>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    let errors = sim.reactive_manager.get_validation_errors().to_vec();
+    let warnings = sim.reactive_manager.get_validation_warnings().to_vec();
+    Ok([errors, warnings].concat())
+}
+
+// --- Debug Introspection Commands ---
+
+#[tauri::command]
+fn get_reactive_debug_state(state: State<AppState>) -> Result<Vec<BehaviorDebug>, String> {
+    let sim = state.inner().0.lock().map_err(|e| e.to_string())?;
+    Ok(sim.reactive_manager.get_reactive_debug_state())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -307,10 +466,30 @@ pub fn run() {
         save_config,
         start_simulation,
         stop_simulation,
+        // Scripted scenario commands
         list_scenarios,
         load_scenario,
         control_scenario,
-        get_scenario_status
+        get_scenario_status,
+        // Reactive scenario commands
+        list_reactive_scenarios,
+        load_reactive_scenario,
+        disable_reactive_scenario,
+        get_active_reactive_scenario,
+        // Force override commands
+        set_channel_force,
+        clear_channel_force,
+        clear_all_forces,
+        get_forces,
+        // Manual override commands
+        set_manual_override,
+        clear_manual_override,
+        clear_all_manual_overrides,
+        get_manual_overrides,
+        // Validation commands
+        get_validation_errors,
+        // Debug introspection commands
+        get_reactive_debug_state
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
