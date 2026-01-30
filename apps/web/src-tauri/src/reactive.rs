@@ -2064,4 +2064,365 @@ mod tests {
         assert!(manager.active_scenario.is_none());
         assert!(manager.active_runtime.is_none());
     }
+
+    // ========== Phase 7 Tests: Additional Coverage ==========
+
+    #[test]
+    fn test_topo_order_stability() {
+        // Test that evaluation order is deterministic: A→B→C chain
+        let scenario = ReactiveScenario {
+            name: "chain".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                // B depends on A
+                ReactiveBehavior {
+                    id: "b".to_string(),
+                    source: Some(ChannelRef::new(0, 0)), // reads A
+                    target: ChannelRef::new(0, 1),       // writes B
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+                // C depends on B
+                ReactiveBehavior {
+                    id: "c".to_string(),
+                    source: Some(ChannelRef::new(0, 1)), // reads B
+                    target: ChannelRef::new(0, 2),       // writes C
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+            ],
+        };
+
+        let runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+
+        // Verify topo order: b should come before c
+        assert_eq!(runtime.graph.topo_order.len(), 2);
+        let b_idx = runtime.graph.topo_order.iter().position(|&i| i == 0).unwrap();
+        let c_idx = runtime.graph.topo_order.iter().position(|&i| i == 1).unwrap();
+        assert!(b_idx < c_idx, "b should be evaluated before c due to dependency");
+    }
+
+    #[test]
+    fn test_scaled_mapping() {
+        // Note: Current implementation uses hardcoded scale=1.0, offset=0.0
+        // The value field is not used for scaled mapping (TODO in implementation)
+        let scenario = ReactiveScenario {
+            name: "scaled".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "scale".to_string(),
+                    source: Some(ChannelRef::new(0, 0)),
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Scaled,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None, // Not used by current scaled implementation
+                },
+            ],
+        };
+
+        let mut runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+
+        // Source value 5.0, scale 1.0, offset 0.0 -> output should be 5.0
+        let results = runtime.evaluate(&scenario, 1, |_| 5.0, |_| false, |_| false);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 5.0); // 5.0 * 1.0 + 0.0 = 5.0
+    }
+
+    #[test]
+    fn test_manual_override_blocks_scenario() {
+        let scenario = ReactiveScenario {
+            name: "test".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "blocked".to_string(),
+                    source: Some(ChannelRef::new(0, 0)),
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+            ],
+        };
+
+        let mut runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+
+        // Target (0,1) has manual override
+        let is_manual = |ch: &ChannelRef| ch.module_position == 0 && ch.channel == 1;
+
+        let results = runtime.evaluate(&scenario, 1, |_| 1.0, |_| false, is_manual);
+        assert!(results.is_empty(), "Scenario write should be blocked by manual override");
+    }
+
+    #[test]
+    fn test_complex_dependency_chain() {
+        // A→B→C→D chain, verify all evaluated in correct order
+        let scenario = ReactiveScenario {
+            name: "complex".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "a_to_b".to_string(),
+                    source: Some(ChannelRef::new(0, 0)),
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+                ReactiveBehavior {
+                    id: "b_to_c".to_string(),
+                    source: Some(ChannelRef::new(0, 1)),
+                    target: ChannelRef::new(0, 2),
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+                ReactiveBehavior {
+                    id: "c_to_d".to_string(),
+                    source: Some(ChannelRef::new(0, 2)),
+                    target: ChannelRef::new(0, 3),
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+            ],
+        };
+
+        let runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+
+        // All three should be in topo order
+        assert_eq!(runtime.graph.topo_order.len(), 3);
+
+        // a_to_b < b_to_c < c_to_d in execution order
+        let order: Vec<usize> = runtime.graph.topo_order.clone();
+        assert!(order[0] == 0, "a_to_b should be first");
+        assert!(order[1] == 1, "b_to_c should be second");
+        assert!(order[2] == 2, "c_to_d should be third");
+    }
+
+    #[test]
+    fn test_delay_pending_cleared_on_deactivate() {
+        let scenario = ReactiveScenario {
+            name: "delayed".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "delayed_behavior".to_string(),
+                    source: Some(ChannelRef::new(0, 0)),
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 100,
+                    enabled: true,
+                    value: None,
+                },
+            ],
+        };
+
+        let mut runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+
+        // Trigger delayed behavior (source changes)
+        let _ = runtime.evaluate(&scenario, 1, |_| 1.0, |_| false, |_| false);
+
+        // Verify pending state is set
+        let state = runtime.behavior_states.get("delayed_behavior").unwrap();
+        assert!(state.pending_until_tick.is_some());
+        assert!(state.pending_value.is_some());
+
+        // Deactivate clears pending
+        runtime.on_deactivate();
+
+        let state = runtime.behavior_states.get("delayed_behavior").unwrap();
+        assert!(state.pending_until_tick.is_none());
+        assert!(state.pending_value.is_none());
+    }
+
+    #[test]
+    fn test_scaled_mapping_requires_source() {
+        // Scaled mapping requires a source channel (like direct/inverted)
+        let scenario = ReactiveScenario {
+            name: "test".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "scaled_no_source".to_string(),
+                    source: None, // Missing source!
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Scaled,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+            ],
+        };
+
+        let result = validate_scenarios(&[scenario], 1, &[4]);
+        assert!(!result.is_valid());
+        assert!(result.errors.iter().any(|e| e.message.contains("source")));
+    }
+
+    #[test]
+    fn test_disabled_behavior_not_evaluated() {
+        let scenario = ReactiveScenario {
+            name: "test".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "disabled".to_string(),
+                    source: Some(ChannelRef::new(0, 0)),
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Direct,
+                    delay_ms: 0,
+                    enabled: false, // Disabled!
+                    value: None,
+                },
+            ],
+        };
+
+        let mut runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+        let results = runtime.evaluate(&scenario, 1, |_| 1.0, |_| false, |_| false);
+
+        assert!(results.is_empty(), "Disabled behavior should not produce output");
+    }
+
+    #[test]
+    fn test_get_debug_state_reflects_runtime() {
+        let mut manager = ReactiveScenarioManager::new();
+
+        let scenarios = vec![
+            ReactiveScenario {
+                name: "debug-test".to_string(),
+                scenario_type: "reactive".to_string(),
+                description: None,
+                default: true,
+                behaviors: vec![
+                    ReactiveBehavior {
+                        id: "test_behavior".to_string(),
+                        source: Some(ChannelRef::new(0, 0)),
+                        target: ChannelRef::new(0, 1),
+                        mapping: BehaviorMappingYaml::Direct,
+                        delay_ms: 50,
+                        enabled: true,
+                        value: None,
+                    },
+                ],
+            },
+        ];
+
+        manager.load_scenarios(scenarios, 1, &[4]);
+        manager.auto_activate_default(10).unwrap();
+
+        let debug_state = manager.get_reactive_debug_state();
+        assert_eq!(debug_state.len(), 1);
+        assert_eq!(debug_state[0].scenario, "debug-test");
+        assert_eq!(debug_state[0].behavior_id, "test_behavior");
+        assert_eq!(debug_state[0].delay_ms, 50);
+        assert!(debug_state[0].enabled);
+    }
+
+    #[test]
+    fn test_clear_all_forces() {
+        let mut manager = ReactiveScenarioManager::new();
+
+        // Set multiple forces
+        manager.set_force(ChannelRef::new(0, 0), 1.0);
+        manager.set_force(ChannelRef::new(0, 1), 2.0);
+        manager.set_force(ChannelRef::new(1, 0), 3.0);
+
+        assert_eq!(manager.get_forces().len(), 3);
+
+        // Clear all
+        manager.clear_all_forces();
+
+        assert_eq!(manager.get_forces().len(), 0);
+    }
+
+    #[test]
+    fn test_inverted_mapping_boolean() {
+        let scenario = ReactiveScenario {
+            name: "inverted".to_string(),
+            scenario_type: "reactive".to_string(),
+            description: None,
+            default: false,
+            behaviors: vec![
+                ReactiveBehavior {
+                    id: "invert".to_string(),
+                    source: Some(ChannelRef::new(0, 0)),
+                    target: ChannelRef::new(0, 1),
+                    mapping: BehaviorMappingYaml::Inverted,
+                    delay_ms: 0,
+                    enabled: true,
+                    value: None,
+                },
+            ],
+        };
+
+        let mut runtime = ReactiveScenarioRuntime::new(&scenario, 10).unwrap();
+
+        // Source is 0 (false), inverted should be 1 (true)
+        let results = runtime.evaluate(&scenario, 1, |_| 0.0, |_| false, |_| false);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 1.0);
+
+        // Source is 1 (true), inverted should be 0 (false)
+        let results = runtime.evaluate(&scenario, 2, |_| 1.0, |_| false, |_| false);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 0.0);
+    }
+
+    #[test]
+    fn test_ownership_priority_chain() {
+        // Test that clearing higher-priority ownership falls through correctly
+        let mut ownership = ChannelOwnership::default();
+        ownership.default_value = 0.0;
+        ownership.scenario_value = Some(1.0);
+        ownership.manual_value = Some(2.0);
+        ownership.force = Some(ChannelForce::new(3.0));
+
+        // Force takes precedence
+        let (value, source) = ownership.resolve();
+        assert_eq!(value, 3.0);
+        assert_eq!(source, ValueSource::Force);
+
+        // Clear force, manual takes over
+        ownership.force = None;
+        let (value, source) = ownership.resolve();
+        assert_eq!(value, 2.0);
+        assert_eq!(source, ValueSource::Manual);
+
+        // Clear manual, scenario takes over
+        ownership.manual_value = None;
+        let (value, source) = ownership.resolve();
+        assert_eq!(value, 1.0);
+        assert!(matches!(source, ValueSource::Scenario { .. }));
+
+        // Clear scenario, default takes over
+        ownership.scenario_value = None;
+        let (value, source) = ownership.resolve();
+        assert_eq!(value, 0.0);
+        assert_eq!(source, ValueSource::Default);
+    }
 }

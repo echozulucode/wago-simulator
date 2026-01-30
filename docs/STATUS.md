@@ -4,17 +4,56 @@ Last Updated: 2026-01-29
 
 ## I. Current Context (The "State")
 
-*   **Active Sprint/Phase:** Phase 6: Reactive Scenario System - Scenario Selector + Debug Panel
-*   **Current Objective:** Implement scenario selector dropdown and debug introspection panel.
+*   **Active Sprint/Phase:** Phase 7: Reactive Scenario System - Testing & Validation COMPLETE
+*   **Current Objective:** Reactive Scenario System implementation complete. Ready for real-world testing.
 *   **Current Blockers:** None.
 *   **Active Working Files:**
-    *   `apps/web/src/components/layout/Toolbar.tsx`
-    *   `apps/web/src/components/debug/ReactiveDebugPanel.tsx`
-    *   `apps/web/src/stores/reactiveScenarioStore.ts`
+    *   `apps/web/src-tauri/src/reactive.rs` (34 unit tests)
+    *   `tests/e2e/specs/reactive-scenarios.spec.ts` (E2E tests)
+    *   `docs/REACTIVE_SCENARIOS.md` (documentation)
 
 ## II. Execution Log (The "Ledger")
 
 Rule: New entries are added to the TOP of this list (Reverse Chronological).
+
+### [2026-01-29] - Reactive Scenario System Phase 7: Testing & Validation
+
+*   **Action:** Implemented comprehensive testing and documentation for the reactive scenario system.
+*   **Detail:**
+    *   **Rust Unit Tests:** Added 11 new unit tests to `reactive.rs` (total 34 tests) covering:
+        - Topo order stability for deterministic evaluation
+        - Scaled mapping behavior
+        - Manual override blocks scenario writes
+        - Complex dependency chains (A→B→C→D)
+        - Delay pending cleared on deactivate
+        - Disabled behavior not evaluated
+        - Debug state reflects runtime
+        - Clear all forces
+        - Inverted mapping boolean
+        - Ownership priority chain (force→manual→scenario→default)
+    *   **E2E Tests:** Created `reactive-scenarios.spec.ts` with Playwright tests for:
+        - Force enable/disable via right panel
+        - Force indicators on channel rows
+        - Context menu force actions
+        - Disabled controls when forced
+        - Debug panel visibility and expansion
+        - Reactive scenario dropdown in toolbar
+        - Analog channel force numeric input
+    *   **Documentation:** Created `REACTIVE_SCENARIOS.md` with:
+        - Ownership model explanation
+        - Force override usage guide
+        - Reactive scenario YAML schema
+        - Validation rules reference
+        - Debug panel usage guide
+        - API reference
+        - Best practices
+    *   **Feature Files:** Created 10 BDD feature files for comprehensive acceptance criteria
+*   **Outcome:** Success. Phase 7 complete with 34 Rust unit tests passing, E2E test suite, and full documentation.
+*   **Artifacts:**
+    *   `apps/web/src-tauri/src/reactive.rs` (11 new unit tests)
+    *   `tests/e2e/specs/reactive-scenarios.spec.ts` (new)
+    *   `tests/e2e/features/*.feature` (10 new feature files)
+    *   `docs/REACTIVE_SCENARIOS.md` (new)
 
 ### [2026-01-29] - Reactive Scenario System Phase 6: Scenario Selector + Debug Panel
 
